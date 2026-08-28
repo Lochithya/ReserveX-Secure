@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  /* Set Poppins as the default sans font */
+  --font-sans: "Poppins", system-ui, sans-serif;
+
+  /* Define Custom Colors */
+  --color-primary: #0f172a;
+  --color-primary-hover: #1e293b;
+  --color-secondary: #f59e0b;
+  --color-accent: #3b82f6;
+
+  /* Status Colors */
+  --color-status-available: #00D100;
+  --color-status-reserved: #9ca3af;
+  --color-status-selected: #008000;
+  --color-status-error: #ef4444;
+
+  /* UI Colors */
+  --color-body: #f8fafc;
+  --color-card: #ffffff;
+  --color-text-main: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+}
