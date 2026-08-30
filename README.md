@@ -59,26 +59,53 @@ npm install
 npm run dev
 ```
 
-## Environment Notes
+## 🔐 Auth0 OIDC Authentication Setup
 
-- Backend configuration is in `backend/src/main/resources/application.properties`.
-- Online portal API base URL can be configured using:
-  - `VITE_API_BASE_URL` (defaults to `http://localhost:8080/api`)
+ReserveX supports cloud-based OpenID Connect (OIDC) authentication using **Auth0** for seamless, passwordless vendor account creation and Single Sign-On (SSO).
 
-## API Overview (High-Level)
+### 1. Auth0 Dashboard Setup
+1. **Create an Application**:
+   * Type: **Single Page Application (SPA)**
+   * Allowed Callback URLs: `http://localhost:5173`, `http://localhost:5173/`
+   * Allowed Logout URLs: `http://localhost:5173/login`, `http://localhost:5173`
+   * Allowed Web Origins: `http://localhost:5173`
+2. **Create an API (Audience)**:
+   * Identifier: `https://reservex-api/`
+   * Signing Algorithm: `RS256`
 
-- Auth: `/api/auth/*`
-- Users: `/api/users/*`
-- Reservations: `/api/reservations/*`
-- Stalls: `/api/stalls/*`
-- Admin: `/api/admin/*`
-- Genres: `/api/genres/*`
-- Contact: `/api/contact`
+### 2. Environment Variables Configuration
+
+#### Online Portal (`online-portal/.env`):
+```env
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_AUTH0_DOMAIN=dev-your-tenant.us.auth0.com
+VITE_AUTH0_CLIENT_ID=your_auth0_client_id
+VITE_AUTH0_AUDIENCE=https://reservex-api/
+```
+
+#### Backend (`backend/.env`):
+```env
+DB_URL=jdbc:mysql://localhost:3306/defaultdb?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+DB_USERNAME=root
+DB_PASSWORD=your_password
+
+AUTH0_DOMAIN=dev-your-tenant.us.auth0.com
+AUTH0_AUDIENCE=https://reservex-api/
+JWT_SECRET=your_local_jwt_secret
+```
+
+---
+
+## 🛡️ Security & OWASP Mitigations
+* **OIDC Token Verification**: Backend validates Auth0 RS256 JWT signatures dynamically against Auth0's JWKS (`.well-known/jwks.json`) endpoint.
+* **Just-In-Time (JIT) Provisioning**: New vendors authenticating via Auth0 are automatically provisioned in MySQL with `role = 'VENDOR'` and `password = NULL`.
+* **Access Control & IDOR Prevention**: Reservation access is strictly resolved from the authenticated user token principal.
+* **SQL Injection & XSS Protection**: All database queries utilize Spring Data JPA / Hibernate parameterized queries.
+
+---
 
 ## Academic Context
 
-This codebase was developed collaboratively as a university coursework deliverable for:
-
-**SENG 22212 - Software Architecture and Design**  
-Group Assignment Project
+**Assessment 2: Secure Web Application Development**  
+Information Security Coursework Deliverable
 

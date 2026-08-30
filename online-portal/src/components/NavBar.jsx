@@ -3,16 +3,19 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
 import { Menu, X, UserCircle } from "lucide-react";
 import logo from "../assets/logo.jpeg";
+import LogoutConfirmModal from "./LogoutConfirmModal";
 
 const NavBar = () => {
   const { isAuthenticated, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/");
     setIsOpen(false);
+    setShowLogoutModal(false);
   };
 
   return (
@@ -74,7 +77,7 @@ const NavBar = () => {
                   <UserCircle size={26} strokeWidth={1.5} />
                 </Link>
                 <button
-                  onClick={handleLogout}
+                  onClick={() => setShowLogoutModal(true)}
                   className="text-white border border-white/30 hover:bg-red-500/80 hover:border-red-500/80 transition-colors px-4 py-2 rounded-full text-sm font-medium ml-2"
                 >
                   Sign Out
@@ -161,7 +164,7 @@ const NavBar = () => {
                   <UserCircle size={20} /> My Profile
                 </Link>
                 <button
-                  onClick={handleLogout}
+                  onClick={() => { setShowLogoutModal(true); setIsOpen(false); }}
                   className="block w-full text-left px-3 py-2 mt-2 text-white font-medium rounded-md border border-white/20 hover:bg-red-500/80 transition-colors"
                 >
                   Sign Out
@@ -171,6 +174,12 @@ const NavBar = () => {
           </div>
         </div>
       )}
+
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 };

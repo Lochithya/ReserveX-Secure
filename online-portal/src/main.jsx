@@ -3,12 +3,15 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
+import { Auth0ProviderWithConfig } from "./contexts/Auth0ProviderWithConfig.jsx";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter>
+    <Auth0ProviderWithConfig>
       <AuthProvider>
         <App />
       </AuthProvider>
-    </BrowserRouter>
+    </Auth0ProviderWithConfig>
+  </BrowserRouter>
 );
