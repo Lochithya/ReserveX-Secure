@@ -42,6 +42,12 @@ public class StallService {
     }
 
     @Transactional(readOnly = true)
+    public List<StallDto> getStallsForExhibition(Integer exhibitionId) {
+        return stallRepository.findAllByExhibitionIdAndIsActiveTrueOrderByGridRowAscGridColAsc(exhibitionId)
+                .stream().map(StallDto::fromEntity).toList();
+    }
+
+    @Transactional(readOnly = true)
     public boolean isNameTaken(String name) {
         return stallRepository.existsByNameIgnoreCase(name != null ? name.trim() : "");
     }

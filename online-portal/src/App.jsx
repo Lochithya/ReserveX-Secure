@@ -4,6 +4,7 @@ import RegisterPage from "./pages/RegisterPage";
 import HomePage from './pages/HomePage';
 import NavBar from "./components/NavBar";
 import StallMap from "./pages/StallMap";
+import ExhibitionsPage from "./pages/ExhibitionsPage";
 import Footer from "./components/Footer";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
@@ -25,11 +26,12 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/exhibitions" element={<ExhibitionsPage />} />
 
 
         <Route element={<ProtectedRoute />}>
           <Route path="/home" element={<HomePage />} />
-          <Route path="/stallmap" element={<StallMap />} />
+          <Route path="/exhibitions/:exhibitionId/stalls" element={<StallMap />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/*other protected pages */}
         </Route>

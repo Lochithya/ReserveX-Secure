@@ -7,12 +7,12 @@ import {
 import BookingSummary from "../components/BookingSummary";
 import StallTooltip from "../components/StallTooltip";
 import StallGrid from "../components/StallGrid";
-import { getAllStalls } from "../services/stall.service";
+import { getExhibition, getExhibitionStalls } from "../services/exhibition.service";
 import toast from "react-hot-toast";
 import { AuthContext } from "../contexts/AuthContext";
 import ReservationModal from "../components/ReservationModal";
 import { createReservation } from "../services/reservation.service";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const StallMap = () => {
 
@@ -25,6 +25,8 @@ const StallMap = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReserving, setIsReserving] = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL"); // "ALL", "AVAILABLE", "SMALL", "MEDIUM", "LARGE"
+  const [exhibition, setExhibition] = useState(null);
+  const { exhibitionId } = useParams();
   const navigate = useNavigate()
 
   const existingBookings = user?.noOfCurrentBookings || 0;
@@ -33,7 +35,8 @@ const StallMap = () => {
   const fetchStalls = async () => {
     try {
       setIsLoading(true);
-      const data = await getAllStalls();
+      const [event, data] = await Promise.all([getExhibition(exhibitionId), getExhibitionStalls(exhibitionId)]);
+      setExhibition(event);
       setStalls(data);
 
     } catch (errorMessage) {
@@ -82,7 +85,7 @@ const StallMap = () => {
 
   useEffect(() => {
     fetchStalls()
-  }, [])
+  }, [exhibitionId])
 
   const totalRows = useMemo(() => {
     if (stalls.length === 0) return 10; // Default minimum
@@ -163,10 +166,10 @@ const StallMap = () => {
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
             <MapPinIcon className="w-6 h-6 text-blue-600" />
-            Stall Reservation Map
+            {exhibition?.name || "Exhibition stalls"}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Tap up to 3 green stalls to secure your spots for the book fair.
+            {exhibition ? `${exhibition.venue?.name} · ${new Date(`${exhibition.startDate}T00:00:00`).toLocaleDateString()} – ${new Date(`${exhibition.endDate}T00:00:00`).toLocaleDateString()}` : "Choose available stalls for this event."}
           </p>
         </div>
 
@@ -292,7 +295,7 @@ const StallMap = () => {
             </div>
             <h5 className="font-bold text-slate-800 mb-2">3. Assign Genres</h5>
             <p className="text-sm text-slate-500 leading-relaxed px-4">
-              Head over to your <span className="text-blue-600 font-semibold">Vendor Dashboard</span> to assign specific book genres (like Sci-Fi or Romance) to each individual stall!
+              Head over to your <span className="text-blue-600 font-semibold">Home page</span> to assign genres to each individual stall.
             </p>
           </div>
 

@@ -70,6 +70,17 @@ public class ReservationService {
             throw new IllegalArgumentException("All selected stalls are already reserved or invalid");
         }
 
+        // A reservation may only contain stalls from one exhibition. The selected
+        // exhibition route enforces this in the UI; this validates it server-side.
+        var exhibitionIds = stallsToBook.stream()
+                .map(Stall::getExhibition)
+                .filter(java.util.Objects::nonNull)
+                .map(exhibition -> exhibition.getId())
+                .collect(Collectors.toSet());
+        if (exhibitionIds.size() > 1) {
+            throw new IllegalArgumentException("All selected stalls must belong to the same exhibition");
+        }
+
         int currentBookings = user.getNoOfCurrentBookings();
         int newBookings = stallsToBook.size();
         if (currentBookings + newBookings > MAX_STALLS_PER_USER) {

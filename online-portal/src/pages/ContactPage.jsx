@@ -137,7 +137,7 @@ const ContactPage = () => {
                 </div>
               </div>
 
-              {/* Bottom separator + stall map CTA */}
+              {/* Bottom separator + exhibitions CTA */}
               <div className="relative z-10 mt-12">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex-1 h-px bg-white/20" />
@@ -146,13 +146,13 @@ const ContactPage = () => {
                 </div>
 
                 <a
-                  href="/stallMap"
+                  href="/exhibitions"
                   className="flex items-center justify-between group px-5 py-3.5 rounded-2xl border border-white/20 hover:border-blue-300/50 transition-colors"
                   style={{ background: "rgba(255,255,255,0.10)" }}
                 >
                   <div>
-                    <p className="text-sm font-bold text-white group-hover:text-blue-200 transition-colors">Browse Stall Map</p>
-                    <p className="text-xs text-blue-200/80 mt-0.5">Reserve your exhibition stall</p>
+                    <p className="text-sm font-bold text-white group-hover:text-blue-200 transition-colors">Explore Exhibitions</p>
+                    <p className="text-xs text-blue-200/80 mt-0.5">Find an event and reserve a stall</p>
                   </div>
                   <ArrowRight size={16} className="text-blue-200 group-hover:text-white group-hover:translate-x-1 transition-all" />
                 </a>

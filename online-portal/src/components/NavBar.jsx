@@ -15,7 +15,7 @@ import logo from "../assets/logo.jpeg";
 import LogoutConfirmModal from "./LogoutConfirmModal";
 
 const NavBar = () => {
-  const { isAuthenticated, user, logout, auth0IsAuthenticated } = useContext(AuthContext);
+  const { isAuthenticated, user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -37,10 +37,12 @@ const NavBar = () => {
   const navLinks = !isAuthenticated
     ? [
         { name: "About Us", path: "/" },
+        { name: "Exhibitions", path: "/exhibitions" },
         { name: "Contact Us", path: "/contact" },
       ]
     : [
-        { name: "Dashboard", path: "/home" },
+        { name: "Home", path: "/home" },
+        { name: "Exhibitions", path: "/exhibitions" },
         { name: "About Us", path: "/" },
         { name: "Contact Us", path: "/contact" },
       ];
@@ -112,13 +114,13 @@ const NavBar = () => {
               </>
             ) : (
               <>
-                {/* Stall Map CTA button */}
+                {/* Exhibition discovery CTA */}
                 <Link
-                  to="/stallMap"
+                  to="/exhibitions"
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm sm:text-[15px] font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 shadow-md shadow-blue-900/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                 >
                   <Store size={16} />
-                  <span>Reserve Stall</span>
+                  <span>Explore Exhibitions</span>
                 </Link>
 
                 {/* Profile Pill */}
@@ -236,12 +238,12 @@ const NavBar = () => {
             ) : (
               <>
                 <Link
-                  to="/stallMap"
+                  to="/exhibitions"
                   onClick={() => setIsOpen(false)}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-900/40"
                 >
                   <Store size={16} />
-                  <span>Reserve a Stall</span>
+                  <span>Explore Exhibitions</span>
                 </Link>
 
                 <div className="grid grid-cols-2 gap-2 pt-1">

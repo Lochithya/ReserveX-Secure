@@ -20,6 +20,10 @@ public class Stall {
     @Column(name = "stall_id")
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exhibition_id")
+    private Exhibition exhibition;
+
     @Column(name = "stall_name", nullable = false, unique = true)
     private String name;
 
@@ -29,14 +33,17 @@ public class Stall {
 
     private Double price;
 
-    @Column(name = "gridCol")
+    @Column(name = "grid_col")
     private int gridCol;
 
-    @Column(name = "gridRow")
+    @Column(name = "grid_row")
     private int gridRow;
 
     @Column(name = "is_Confirmed")
     private Boolean isConfirmed;
+
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
     @Column(columnDefinition = "TEXT")
     private String description;

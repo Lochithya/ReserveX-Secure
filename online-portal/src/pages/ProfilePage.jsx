@@ -215,7 +215,7 @@ const ProfilePage = () => {
                 onClick={() => navigate("/home")}
                 className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-all text-center"
               >
-                Go to Dashboard
+                Go to Home
               </button>
               <button
                 onClick={() => setShowLogoutModal(true)}

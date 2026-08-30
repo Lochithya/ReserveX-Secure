@@ -109,11 +109,11 @@ const HomePage = () => {
                 Official Vendor Portal
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-2">
-                Colombo International Book Fair
+                Your exhibitor home
               </h1>
               <p className="text-slate-400 text-sm md:text-base max-w-2xl">
-                Organized by the <span className="text-white font-medium">Sri Lanka Book Publishers’ Association</span>.
-                The largest exhibition in Sri Lanka, connecting millions of readers with publishers like you.
+                Manage your reservations across current and upcoming exhibitions.
+                Explore an event to choose the right venue and stall for your business.
               </p>
             </div>
 
@@ -145,11 +145,11 @@ const HomePage = () => {
             </div>
 
             <button
-              onClick={() => navigate("/stallMap")}
+              onClick={() => navigate("/exhibitions")}
               className="group flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg shadow-blue-900/50 transition-all hover:scale-105 active:scale-95"
             >
               <PlusIcon className="w-6 h-6 group-hover:rotate-90 transition-transform" />
-              New Reservation
+              Explore Exhibitions
             </button>
           </div>
 
@@ -222,11 +222,11 @@ const HomePage = () => {
                   You haven't booked any stalls for the upcoming book fair. Secure your spot now!
                 </p>
                 <button
-                  onClick={() => navigate("/stallMap")}
+                  onClick={() => navigate("/exhibitions")}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   <PlusIcon className="w-5 h-5" />
-                  Book a Stall
+                  Explore Exhibitions
                 </button>
               </div>)
               : (<div className="overflow-x-auto">

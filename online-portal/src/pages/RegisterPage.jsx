@@ -126,7 +126,7 @@ const RegisterPage = () => {
             {[
               "Reserve stalls at top exhibitions & events",
               "Instant QR-coded booking confirmations",
-              "Manage all reservations from one dashboard",
+              "Manage all reservations from one home page",
               "Secure OIDC / Auth0 authentication"
             ].map(text => (
               <div key={text} className="flex items-center gap-2 mb-2">

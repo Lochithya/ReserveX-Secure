@@ -1,6 +1,5 @@
-import React, { useState, useContext } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AuthContext } from "../contexts/AuthContext";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Building2,
   Calendar,
@@ -22,7 +21,6 @@ import {
 
 const AboutPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useContext(AuthContext);
   const [openFaq, setOpenFaq] = useState(null);
 
   const toggleFaq = (index) => {
@@ -77,11 +75,11 @@ const AboutPage = () => {
   const faqs = [
     {
       q: "What is ReserveX and how does the multi-event system work?",
-      a: "ReserveX is an enterprise stall reservation and event management platform. Vendors can explore upcoming exhibitions (like CIBF, Consumer Expo, and Tech Summit), view real-time interactive stall maps, and book stalls tailored to their business category and size requirements."
+      a: "ReserveX is an enterprise stall reservation and event management platform. Vendors can explore current and upcoming exhibitions, compare venues and dates, then choose an event before viewing its available stalls."
     },
     {
       q: "How do I reserve a stall for an exhibition?",
-      a: "Simply sign in to your vendor account, navigate to the Stall Map page (/stallMap), select your desired exhibition, browse available stall grids (Standard, Premium, Corner), and submit your booking with your preferred business genres."
+      a: "Open the Exhibitions page, use the filters to find your event, view the event details, then select available stalls for that specific exhibition."
     },
     {
       q: "What authentication methods does ReserveX support?",
@@ -89,11 +87,11 @@ const AboutPage = () => {
     },
     {
       q: "How does QR-Code verification work for approved reservations?",
-      a: "Once an organizer or employee approves your stall reservation, a unique cryptographically-hashed QR code and confirmation receipt are generated and made available on your dashboard for fast on-site check-in."
+      a: "Once an organizer or employee approves your stall reservation, a unique cryptographically-hashed QR code and confirmation receipt are generated and made available on your Home page for fast on-site check-in."
     },
     {
       q: "Can I manage genre categories for each booked stall?",
-      a: "Yes! From your vendor dashboard (/home), you can customize the specific literary or commercial genres displayed in each of your reserved stalls to maximize footfall and customer engagement."
+      a: "Yes! From your vendor Home page (/home), you can customize the specific literary or commercial genres displayed in each of your reserved stalls to maximize footfall and customer engagement."
     }
   ];
 
@@ -126,11 +124,11 @@ const AboutPage = () => {
 
             <div className="mt-8 flex flex-wrap gap-4">
               <button
-                onClick={() => navigate(isAuthenticated ? "/stallMap" : "/login")}
+                onClick={() => navigate("/exhibitions")}
                 className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/50 hover:shadow-blue-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 <Store className="w-4 h-4" />
-                <span>{isAuthenticated ? "Go to Stall Map" : "Reserve Your Stall"}</span>
+                <span>Explore Exhibitions</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -276,10 +274,10 @@ const AboutPage = () => {
                       </div>
 
                       <button
-                        onClick={() => navigate(isAuthenticated ? "/stallMap" : "/login")}
+                        onClick={() => navigate("/exhibitions")}
                         className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform"
                       >
-                        <span>Book Stall</span>
+                        <span>Explore events</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -448,10 +446,10 @@ const AboutPage = () => {
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <button
-              onClick={() => navigate(isAuthenticated ? "/stallMap" : "/register")}
+              onClick={() => navigate("/exhibitions")}
               className="px-8 py-3.5 rounded-xl font-bold text-sm text-blue-700 bg-white hover:bg-blue-50 shadow-xl hover:scale-105 active:scale-95 transition-all"
             >
-              {isAuthenticated ? "Explore Stall Map" : "Create Vendor Account"}
+              Explore Exhibitions
             </button>
 
             <button

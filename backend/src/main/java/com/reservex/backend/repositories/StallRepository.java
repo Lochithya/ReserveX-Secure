@@ -16,4 +16,10 @@ public interface StallRepository extends JpaRepository<Stall, Integer> {
     boolean existsByGridRowAndGridCol(int gridRow, int gridCol);
 
     boolean existsByGridRowAndGridColAndIdNot(int gridRow, int gridCol, Integer excludeId);
+
+    List<Stall> findAllByExhibitionIdAndIsActiveTrueOrderByGridRowAscGridColAsc(Integer exhibitionId);
+
+    long countByExhibitionIdAndIsActiveTrue(Integer exhibitionId);
+
+    long countByExhibitionIdAndIsActiveTrueAndIsConfirmedTrue(Integer exhibitionId);
 }
