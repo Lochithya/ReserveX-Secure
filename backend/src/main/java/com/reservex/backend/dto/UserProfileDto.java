@@ -10,9 +10,11 @@ import java.time.Instant;
 @Builder
 public class UserProfileDto {
     private Integer id;
+    private String name;
     private String businessName;
     private String email;
     private String username;
+    private String contactNumber;
     private String role;
     private Integer noOfCurrentBookings;
     private Instant createdAt;
@@ -21,9 +23,11 @@ public class UserProfileDto {
     public static UserProfileDto fromEntity(User user) {
         return UserProfileDto.builder()
                 .id(user.getId())
+                .name(user.getName())
                 .businessName(user.getBusinessName())
                 .email(user.getEmail())
                 .username(user.getUsername())
+                .contactNumber(user.getContactNumber())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .noOfCurrentBookings(user.getNoOfCurrentBookings())
                 .createdAt(user.getCreatedAt())

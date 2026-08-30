@@ -1,5 +1,6 @@
 package com.reservex.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -8,18 +9,26 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email
-    private String email;
-
-    @NotBlank(message = "Password is required")
-    @Size(min = 6)
-    private String password;
-
-    @NotBlank(message = "Business name is required")
-    private String businessName;
+    @NotBlank(message = "Name is required")
+    private String name;
 
     @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
     private String username;
 
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
+    private String email;
+
+    @NotBlank(message = "Contact number is required")
+    @JsonAlias("contact_number")
+    private String contactNumber;
+
+    @NotBlank(message = "Business name is required")
+    @JsonAlias("business_name")
+    private String businessName;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, message = "Password must be at least 6 characters")
+    private String password;
 }

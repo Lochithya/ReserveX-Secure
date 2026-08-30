@@ -21,31 +21,39 @@ public class User {
     @Column(name = "user_id")
     private Integer id;
 
-    @Column(name = "business_name", nullable = false)
-    private String businessName;
+    @Column(name = "name")
+    private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", unique = true)
     private String email;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "username", unique = true)
     private String username;
 
-    @Column(nullable = false)
+    @Column(name = "password")
     private String password;
 
-    @Column(name = "no_of_current_bookings", nullable = false)
+    @Column(name = "contact_number")
+    private String contactNumber;
+
+    @Column(name = "business_name")
+    private String businessName;
+
+    @Builder.Default
+    @Column(name = "no_of_current_bookings")
     private int noOfCurrentBookings = 0;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role")
     private Role role;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
-    @Column(name = "last_updated_at", nullable = false)
+    @Column(name = "last_updated_at")
     private Instant lastUpdatedAt;
 
+    @Builder.Default
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Reservation> reservations = new ArrayList<>();
 

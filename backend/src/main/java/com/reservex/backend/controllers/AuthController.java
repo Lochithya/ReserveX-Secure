@@ -27,7 +27,15 @@ public class AuthController {
         try {
             User user = authService.register(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(
-                    new RegisterResponse(user.getId(), user.getEmail(), user.getBusinessName()));
+                    new RegisterResponse(
+                            user.getId(),
+                            user.getName(),
+                            user.getUsername(),
+                            user.getEmail(),
+                            user.getContactNumber(),
+                            user.getBusinessName(),
+                            "Account created successfully"
+                    ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
         }
@@ -43,6 +51,14 @@ public class AuthController {
         }
     }
 
-    public record RegisterResponse(Integer id, String email, String businessName) {}
+    public record RegisterResponse(
+            Integer id,
+            String name,
+            String username,
+            String email,
+            String contactNumber,
+            String businessName,
+            String message
+    ) {}
     public record ErrorMessage(String message) {}
 }

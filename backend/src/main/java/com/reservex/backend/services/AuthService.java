@@ -33,26 +33,33 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
         }
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already taken");
+        }
         var user = User.builder()
-                .email(request.getEmail())
-                // keep username in sync with email for now
+                .name(request.getName())
                 .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.getEmail())
+                .contactNumber(request.getContactNumber())
                 .businessName(request.getBusinessName())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .role(User.Role.VENDOR)
                 .build();
         return userRepository.save(user);
     }
 
-    public JwtResponse login(String email, String password) {
+    public JwtResponse login(String usernameOrEmail, String password) {
         Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, password));
+                new UsernamePasswordAuthenticationToken(usernameOrEmail, password));
         var principal = (UserPrincipal) auth.getPrincipal();
         String token = jwtUtil.generateToken(auth);
         return JwtResponse.builder()
                 .token(token)
                 .id(principal.getId())
+                .name(principal.getName())
+                .username(principal.getUsername())
                 .email(principal.getEmail())
+                .contactNumber(principal.getContactNumber())
                 .businessName(principal.getBusinessName())
                 .role(principal.getRole())
                 .noOfCurrentBookings(principal.getNoOfCurrentBookings())

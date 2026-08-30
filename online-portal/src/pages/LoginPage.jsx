@@ -48,10 +48,10 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 px-6">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold">Publisher Portal</h1>
+        <h1 className="text-3xl font-bold">Vendor Portal</h1>
         <p className="text-gray-500 mt-2 max-w-md">
-          Secure your stall at Sri Lanka’s largest literary event. Log in to
-          manage your reservation or register as a new vendor.
+          Secure your stall at upcoming exhibitions and events. Log in to
+          manage your reservations or register as a new vendor.
         </p>
       </div>
 

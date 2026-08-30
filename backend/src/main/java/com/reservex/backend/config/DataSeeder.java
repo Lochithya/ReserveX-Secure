@@ -29,7 +29,10 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedAdminUser() {
         userRepository.save(User.builder()
+                .name("Exhibition Organizer")
+                .username("admin")
                 .email("admin@bookfair.lk")
+                .contactNumber("+94112345678")
                 .password(passwordEncoder.encode("admin123"))
                 .businessName("Book Fair Organizer")
                 .role(User.Role.EMPLOYEE)

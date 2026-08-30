@@ -17,25 +17,29 @@ import java.util.stream.Collectors;
 public class UserPrincipal implements UserDetails {
 
     private final Integer id;
+    private final String name;
     private final String email;
     private final String password;
     private final String role;
     private final String username;
+    private final String contactNumber;
     private final String businessName;
     private final Integer noOfCurrentBookings;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
         this.id = user.getId();
+        this.name = user.getName();
         this.email = user.getEmail();
         this.password = user.getPassword();
-        this.role = user.getRole().name();
+        this.role = user.getRole() != null ? user.getRole().name() : null;
         this.username = user.getUsername();
+        this.contactNumber = user.getContactNumber();
         this.businessName = user.getBusinessName();
         this.noOfCurrentBookings = user.getNoOfCurrentBookings();
-        this.authorities = List.of(user.getRole().name()).stream()
-                .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
-                .collect(Collectors.toList());
+        this.authorities = user.getRole() != null
+                ? List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                : List.of();
     }
 
     @Override
