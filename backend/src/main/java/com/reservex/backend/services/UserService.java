@@ -1,6 +1,7 @@
 package com.reservex.backend.services;
 
 import com.reservex.backend.dto.ChangePasswordRequest;
+import com.reservex.backend.dto.UpdateProfileRequest;
 import com.reservex.backend.dto.UserProfileDto;
 import com.reservex.backend.entity.User;
 import com.reservex.backend.repositories.UserRepository;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
@@ -37,22 +39,63 @@ public class UserService {
     }
 
     @Transactional
-    public UserProfileDto changeMyPassword(Integer userId, ChangePasswordRequest request) {
-        if (request.getNewPassword() == null || request.getConfirmPassword() == null) {
-            throw new IllegalArgumentException("New password and confirmation are required");
-        }
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new IllegalArgumentException("New password and confirmation do not match");
-        }
-
+    public UserProfileDto updateProfile(Integer userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Optional current password validation (if client provides it)
-        if (request.getCurrentPassword() != null && !request.getCurrentPassword().isBlank()) {
-            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-                throw new IllegalArgumentException("Current password is incorrect");
-            }
+        if (request.getName() == null || request.getName().trim().isBlank()) {
+            throw new IllegalArgumentException("Full name cannot be empty");
+        }
+        if (request.getUsername() == null || request.getUsername().trim().isBlank()) {
+            throw new IllegalArgumentException("Username cannot be empty");
+        }
+        if (request.getBusinessName() == null || request.getBusinessName().trim().isBlank()) {
+            throw new IllegalArgumentException("Business name cannot be empty");
+        }
+
+        String cleanUsername = request.getUsername().trim();
+        // Validate username uniqueness across other users
+        Optional<User> userWithUsername = userRepository.findByUsername(cleanUsername);
+        if (userWithUsername.isPresent() && !userWithUsername.get().getId().equals(userId)) {
+            throw new IllegalArgumentException("Username '" + cleanUsername + "' is already taken by another account");
+        }
+
+        user.setName(request.getName().trim());
+        user.setUsername(cleanUsername);
+        user.setBusinessName(request.getBusinessName().trim());
+        user.setContactNumber(request.getContactNumber() != null ? request.getContactNumber().trim() : "");
+        user.setLastUpdatedAt(Instant.now());
+
+        User saved = userRepository.save(user);
+        return UserProfileDto.fromEntity(saved);
+    }
+
+    @Transactional
+    public UserProfileDto changeMyPassword(Integer userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // OIDC / SSO Users have password = null
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new IllegalArgumentException(
+                    "This account is authenticated via Social SSO (OIDC). Password management is handled by your Identity Provider (e.g. Google, Microsoft, GitHub)."
+            );
+        }
+
+        if (request.getNewPassword() == null || request.getNewPassword().isBlank() ||
+            request.getConfirmPassword() == null || request.getConfirmPassword().isBlank()) {
+            throw new IllegalArgumentException("New password and confirmation password are required");
+        }
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirmation password do not match");
+        }
+
+        // Current password validation (mandatory for manual accounts)
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+            throw new IllegalArgumentException("Current password is required");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
         }
 
         // New password must not be same as current password
@@ -60,19 +103,11 @@ public class UserService {
             throw new IllegalArgumentException("New password must be different from current password");
         }
 
-        if (!PASSWORD_POLICY.matcher(request.getNewPassword()).matches()) {
-            throw new IllegalArgumentException(
-                    "Password must be at least 8 characters and include lowercase, number, and special character"
-            );
+        if (request.getNewPassword().length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-
-        // If lastUpdatedAt was never set, initialize it to createdAt first (never-updated state)
-        if (user.getLastUpdatedAt() == null) {
-            user.setLastUpdatedAt(user.getCreatedAt());
-        }
-        // Record update time now
         user.setLastUpdatedAt(Instant.now());
 
         User saved = userRepository.save(user);

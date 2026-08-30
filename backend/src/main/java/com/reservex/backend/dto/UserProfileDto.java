@@ -17,6 +17,7 @@ public class UserProfileDto {
     private String contactNumber;
     private String role;
     private Integer noOfCurrentBookings;
+    private Boolean hasPassword;
     private Instant createdAt;
     private Instant lastUpdatedAt;
 
@@ -30,6 +31,7 @@ public class UserProfileDto {
                 .contactNumber(user.getContactNumber())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .noOfCurrentBookings(user.getNoOfCurrentBookings())
+                .hasPassword(user.getPassword() != null && !user.getPassword().isBlank())
                 .createdAt(user.getCreatedAt())
                 .lastUpdatedAt(user.getLastUpdatedAt())
                 .build();

@@ -56,13 +56,10 @@ public class OidcUserProvisioningService {
                 ? customContactNumber
                 : "";
 
-        // Find existing user by email or username
+        // 1. Find existing user ONLY by verified email (never by username, to prevent collision hijacking)
         Optional<User> existingUser = Optional.empty();
         if (email != null && !email.isBlank()) {
             existingUser = userRepository.findByEmail(email);
-        }
-        if (existingUser.isEmpty() && !derivedUsername.isBlank()) {
-            existingUser = userRepository.findByUsername(derivedUsername);
         }
 
         User user;
@@ -85,18 +82,23 @@ public class OidcUserProvisioningService {
                 user = userRepository.save(user);
             }
         } else {
-            // JIT Provision new Vendor user (without password)
+            // 2. JIT Provision new Vendor user: Resolve username collisions with incremental numbers
             String uniqueUsername = derivedUsername;
             int counter = 1;
             while (userRepository.existsByUsername(uniqueUsername)) {
                 uniqueUsername = derivedUsername + counter++;
             }
 
+            // If username was incremented (e.g. John1), sync default shop name to "John1 Shop"
+            String finalBusinessName = (customBusinessName != null && !customBusinessName.isBlank())
+                    ? customBusinessName
+                    : uniqueUsername + " Shop";
+
             user = User.builder()
                     .name(name != null && !name.isBlank() ? name : uniqueUsername)
                     .username(uniqueUsername)
                     .email(email != null && !email.isBlank() ? email : uniqueUsername + "@auth0.local")
-                    .businessName(derivedBusinessName)
+                    .businessName(finalBusinessName)
                     .contactNumber(contactNumber)
                     .password(null) // Password is NULL for OIDC users
                     .role(User.Role.VENDOR)

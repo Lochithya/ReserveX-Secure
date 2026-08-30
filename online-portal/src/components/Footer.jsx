@@ -78,7 +78,7 @@ const Footer = () => {
           <div className="space-y-4 text-sm">
             <p className="flex items-center gap-2">
               <Mail size={16} />
-              info@cibf2026.lk
+              reservexprojects@gmail.com
             </p>
             <p className="flex items-center gap-2">
               <MapPin size={16} />

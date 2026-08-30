@@ -1,6 +1,7 @@
-import { createContext, useEffect, useState, useCallback } from "react";
+import { createContext, useEffect, useState, useRef, useCallback } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { getCurrentUser } from "../services/auth.service";
+import toast from "react-hot-toast";
 
 export const AuthContext = createContext();
 
@@ -11,8 +12,11 @@ export const AuthProvider = ({ children }) => {
         loginWithRedirect,
         logout: auth0Logout,
         getAccessTokenSilently,
+        getIdTokenClaims,
         isLoading: auth0Loading,
     } = useAuth0();
+
+    const hasNotifiedRef = useRef(false);
 
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem("user");
@@ -38,9 +42,24 @@ export const AuthProvider = ({ children }) => {
                 try {
                     let token = "";
                     try {
-                        token = await getAccessTokenSilently();
+                        const claims = await getIdTokenClaims();
+                        if (claims && claims.__raw) {
+                            token = claims.__raw;
+                        }
                     } catch (e) {
-                        console.warn("Could not get access token silently, using fallback ID token:", e);
+                        console.warn("Could not get ID token claims:", e);
+                    }
+
+                    if (!token) {
+                        try {
+                            token = await getAccessTokenSilently();
+                        } catch (e) {
+                            console.warn("Could not get access token silently:", e);
+                        }
+                    }
+
+                    if (token) {
+                        localStorage.setItem("token", token);
                     }
 
                     const fullName = auth0User.name || auth0User.nickname || "Vendor";
@@ -59,9 +78,6 @@ export const AuthProvider = ({ children }) => {
                         authProvider: "auth0"
                     };
 
-                    if (token) {
-                        localStorage.setItem("token", token);
-                    }
                     localStorage.setItem("user", JSON.stringify(vendorProfile));
                     setUser(vendorProfile);
                     setIsAuthenticated(true);
@@ -77,8 +93,15 @@ export const AuthProvider = ({ children }) => {
                     } catch (err) {
                         console.debug("Backend profile sync will occur on first API call");
                     }
+
+                    // Trigger toast notification on successful SSO login/signup
+                    if (!hasNotifiedRef.current) {
+                        hasNotifiedRef.current = true;
+                        toast.success(`Welcome, ${vendorProfile.name || "Vendor"}!`);
+                    }
                 } catch (err) {
                     console.error("Failed to sync Auth0 user profile:", err);
+                    toast.error("Failed to sync profile. Please try again.");
                 }
             }
             setLoading(false);
@@ -87,9 +110,10 @@ export const AuthProvider = ({ children }) => {
         if (!auth0Loading) {
             syncAuth0User();
         }
-    }, [auth0IsAuthenticated, auth0User, auth0Loading, getAccessTokenSilently]);
+    }, [auth0IsAuthenticated, auth0User, auth0Loading, getAccessTokenSilently, getIdTokenClaims]);
 
     const login = (userData, token) => {
+        hasNotifiedRef.current = true;
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(userData));
         setIsAuthenticated(true);
@@ -97,14 +121,17 @@ export const AuthProvider = ({ children }) => {
     };
 
     const loginWithAuth0 = async (options = {}) => {
+        hasNotifiedRef.current = false;
         await loginWithRedirect(options);
     };
 
     const logout = () => {
+        hasNotifiedRef.current = false;
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setIsAuthenticated(false);
         setUser(null);
+        toast.success("Signed out successfully");
 
         if (auth0IsAuthenticated) {
             auth0Logout({ logoutParams: { returnTo: window.location.origin } });
@@ -137,6 +164,8 @@ export const AuthProvider = ({ children }) => {
                 logout,
                 refreshUser,
                 loading: loading || auth0Loading,
+                auth0IsAuthenticated,
+                auth0User,
             }}
         >
             {children}

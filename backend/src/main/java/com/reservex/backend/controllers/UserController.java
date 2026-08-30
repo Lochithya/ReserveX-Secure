@@ -26,6 +26,17 @@ public class UserController {
         }
     }
 
+    @PutMapping("/me")
+    public ResponseEntity<?> updateProfile(@AuthenticationPrincipal UserPrincipal principal,
+                                           @Valid @RequestBody com.reservex.backend.dto.UpdateProfileRequest request) {
+        try {
+            UserProfileDto updated = userService.updateProfile(principal.getId(), request);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorMessage(e.getMessage()));
+        }
+    }
+
     @PostMapping("/me/password")
     public ResponseEntity<?> changePassword(@AuthenticationPrincipal UserPrincipal principal,
                                             @Valid @RequestBody ChangePasswordRequest request) {

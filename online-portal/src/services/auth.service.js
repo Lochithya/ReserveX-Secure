@@ -49,3 +49,32 @@ export const getCurrentUser = async () => {
     throw err?.response?.data?.message || "Failed to fetch user data";
   }
 };
+
+export const updateUserProfile = async (profileData) => {
+  try {
+    const res = await api.put("/users/me", {
+      name: profileData.name,
+      username: profileData.username,
+      businessName: profileData.businessName,
+      contactNumber: profileData.contactNumber,
+    });
+    return res.data;
+  } catch (err) {
+    console.error("updateUserProfile error:", err);
+    throw err?.response?.data?.message || "Failed to update profile";
+  }
+};
+
+export const changePassword = async (passwordData) => {
+  try {
+    const res = await api.post("/users/me/password", {
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword,
+      confirmPassword: passwordData.confirmPassword,
+    });
+    return res.data;
+  } catch (err) {
+    console.error("changePassword error:", err);
+    throw err?.response?.data?.message || "Failed to change password";
+  }
+};

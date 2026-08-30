@@ -5,24 +5,30 @@ import { useNavigate } from "react-router-dom";
 export const Auth0ProviderWithConfig = ({ children }) => {
   const navigate = useNavigate();
 
-  const domain = import.meta.env.VITE_AUTH0_DOMAIN || "dev-placeholder.us.auth0.com";
-  const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || "placeholder_client_id";
-  const audience = import.meta.env.VITE_AUTH0_AUDIENCE || "https://reservex-api/";
+  const domain = (import.meta.env.VITE_AUTH0_DOMAIN || "").trim();
+  const clientId = (import.meta.env.VITE_AUTH0_CLIENT_ID || "").trim();
+  const audience = (import.meta.env.VITE_AUTH0_AUDIENCE || "").trim();
   const redirectUri = window.location.origin;
 
   const onRedirectCallback = (appState) => {
     navigate(appState?.returnTo || "/home");
   };
 
+  const authorizationParams = {
+    redirect_uri: redirectUri,
+    scope: "openid profile email",
+    ...(audience ? { audience } : {}),
+  };
+
+  if (!domain || !clientId) {
+    return <>{children}</>;
+  }
+
   return (
     <Auth0Provider
       domain={domain}
       clientId={clientId}
-      authorizationParams={{
-        redirect_uri: redirectUri,
-        ...(audience ? { audience } : {}),
-        scope: "openid profile email",
-      }}
+      authorizationParams={authorizationParams}
       onRedirectCallback={onRedirectCallback}
       useRefreshTokens={true}
       cacheLocation="localstorage"
