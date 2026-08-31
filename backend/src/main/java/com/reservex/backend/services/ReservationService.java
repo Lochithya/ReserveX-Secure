@@ -143,14 +143,20 @@ public class ReservationService {
         reservationRepository.flush();
         stallRepository.flush();
         
-        // Send email with reservation details
-        try {
-            emailService.sendReservationConfirmation(user, reservation);
-        } catch (Exception e) {
-            // Log but don't fail the transaction
-            System.err.println("Failed to send reservation confirmation email: " + e.getMessage());
-            e.printStackTrace();
-        }
+        // Prepare final variables for async execution
+        final Reservation finalReservation = reservation;
+        final User finalUser = user;
+        
+        // Send email ASYNCHRONOUSLY - don't block the HTTP response
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendReservationConfirmation(finalUser, finalReservation);
+                System.out.println("✅ Reservation confirmation email sent successfully to: " + finalUser.getEmail());
+            } catch (Exception e) {
+                System.err.println("❌ Failed to send reservation confirmation email: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
 
         List<ReservationDto> result = new ArrayList<>();
         result.add(ReservationDto.fromEntity(reservation));
