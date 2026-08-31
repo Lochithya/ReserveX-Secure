@@ -22,4 +22,9 @@ public interface StallRepository extends JpaRepository<Stall, Integer> {
     long countByExhibitionIdAndIsActiveTrue(Integer exhibitionId);
 
     long countByExhibitionIdAndIsActiveTrueAndIsConfirmedTrue(Integer exhibitionId);
+    
+    // Admin-specific methods
+    long countByExhibitionId(Integer exhibitionId);
+    
+    List<Stall> findAllByExhibitionIdOrderByNameAsc(Integer exhibitionId);
 }

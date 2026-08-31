@@ -1,31 +1,47 @@
 package com.reservex.backend.dto;
 
-import com.reservex.backend.entity.Stall;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UpdateStallRequest {
-
-    @NotBlank(message = "Stall name is required")
-    private String name;
-
-    @NotNull(message = "Size is required")
-    private Stall.StallSize size;
-
-    @NotBlank(message = "Type is required")
-    private String type; // "Standard", "Premium", or "Corner Stall"
-
-    @NotNull(message = "Price is required")
-    @Positive(message = "Price must be positive")
-    private Double price;
-
-    @Min(value = 1, message = "Grid column must be at least 1")
-    private int gridCol = 0;
     
+    @NotNull(message = "Exhibition ID is required")
+    private Integer exhibitionId;
+    
+    @NotBlank(message = "Stall name is required")
+    @Size(min = 1, max = 50, message = "Stall name must be between 1 and 50 characters")
+    private String name;
+    
+    @NotBlank(message = "Size is required")
+    @Pattern(regexp = "small|medium|large", message = "Size must be: small, medium, or large")
+    private String size;
+    
+    @NotBlank(message = "Type is required")
+    @Size(max = 100, message = "Type cannot exceed 100 characters")
+    private String type;
+    
+    @NotNull(message = "Price is required")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
+    private Double price;
+    
+    @NotNull(message = "Grid row is required")
     @Min(value = 1, message = "Grid row must be at least 1")
-    private int gridRow = 0;
+    private Integer gridRow;
+    
+    @NotNull(message = "Grid column is required")
+    @Min(value = 1, message = "Grid column must be at least 1")
+    private Integer gridCol;
+    
+    @Size(max = 1000, message = "Description cannot exceed 1000 characters")
+    private String description;
+    
+    @NotNull(message = "Active status is required")
+    private Boolean isActive;
 }

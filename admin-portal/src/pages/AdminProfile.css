@@ -16,9 +16,7 @@
 
 .adminProfilePage {
   min-height: 100vh;
-  background: radial-gradient(1200px 500px at 20% 0%, #e8f0ff 0%, rgba(232, 240, 255, 0) 60%),
-    radial-gradient(1000px 500px at 80% 10%, #efe8ff 0%, rgba(239, 232, 255, 0) 60%),
-    var(--ap-bg);
+  background: #ffffff;
   padding: 28px 28px 48px;
   color: var(--ap-text);
 }

@@ -94,8 +94,16 @@ public class StallService {
             throw new IllegalArgumentException("Grid row and column must be at least 1");
         }
         
+        // Parse and validate size
+        Stall.StallSize size;
+        try {
+            size = Stall.StallSize.valueOf(request.getSize().toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid size. Must be: small, medium, or large");
+        }
+        
         // Validate price range based on size
-        validatePriceForSize(request.getPrice(), request.getSize());
+        validatePriceForSize(request.getPrice(), size);
         
         // Validate grid position uniqueness
         if (stallRepository.existsByGridRowAndGridCol(request.getGridRow(), request.getGridCol())) {
@@ -105,7 +113,7 @@ public class StallService {
         
         Stall stall = Stall.builder()
                 .name(name)
-                .size(request.getSize())
+                .size(size)
                 .type(request.getType()) // Set the type field
                 .price(request.getPrice() != null ? request.getPrice() : 0.0)
                 .gridCol(request.getGridCol())
@@ -130,8 +138,16 @@ public class StallService {
             throw new IllegalArgumentException("Grid row and column must be at least 1");
         }
         
+        // Parse and validate size
+        Stall.StallSize size;
+        try {
+            size = Stall.StallSize.valueOf(request.getSize().toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid size. Must be: small, medium, or large");
+        }
+        
         // Validate price range based on size
-        validatePriceForSize(request.getPrice(), request.getSize());
+        validatePriceForSize(request.getPrice(), size);
         
         // Validate grid position uniqueness (excluding current stall)
         if (stallRepository.existsByGridRowAndGridColAndIdNot(request.getGridRow(), request.getGridCol(), id)) {
@@ -140,7 +156,7 @@ public class StallService {
         }
         
         stall.setName(name);
-        stall.setSize(request.getSize());
+        stall.setSize(size);
         stall.setType(request.getType()); // Set the type field
         stall.setPrice(request.getPrice() != null ? request.getPrice() : 0.0);
         stall.setGridCol(request.getGridCol());

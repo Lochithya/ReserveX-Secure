@@ -8,10 +8,13 @@ const NavBar = () => {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  
   const isDashboard = location.pathname === '/dashboard';
-  const isManageStalls = location.pathname === '/manage-stalls';
-  const isViewStalls = location.pathname === '/view-stalls';
-  const isViewReservations = location.pathname === '/view-reservations';
+  const isExhibitions = location.pathname === '/exhibitions';
+  const isStalls = location.pathname === '/stalls';
+  const isReservations = location.pathname === '/reservations';
+  const isVendors = location.pathname === '/vendors';
+  const isStallMaps = location.pathname === '/stall-maps';
   const isAdminProfile = location.pathname === '/admin-profile';
 
   const handleLogoutClick = () => {
@@ -44,13 +47,22 @@ const NavBar = () => {
             className={`navbar-item ${isDashboard ? 'active-page' : ''}`}
           >
             <span className="navbar-text-two-lines">
-              <span className="navbar-text-line1">Admin</span>
-              <span className="navbar-text-line2">Dashboard</span>
+              <span className="navbar-text-line1">Dashboard</span>
+              <span className="navbar-text-line2">Overview</span>
             </span>
           </Link>
           <Link
-            to="/manage-stalls"
-            className={`navbar-item ${isManageStalls ? 'active-page' : ''}`}
+            to="/exhibitions"
+            className={`navbar-item ${isExhibitions ? 'active-page' : ''}`}
+          >
+            <span className="navbar-text-two-lines">
+              <span className="navbar-text-line1">Manage</span>
+              <span className="navbar-text-line2">Exhibitions</span>
+            </span>
+          </Link>
+          <Link
+            to="/stalls"
+            className={`navbar-item ${isStalls ? 'active-page' : ''}`}
           >
             <span className="navbar-text-two-lines">
               <span className="navbar-text-line1">Manage</span>
@@ -58,21 +70,30 @@ const NavBar = () => {
             </span>
           </Link>
           <Link
-            to="/view-stalls"
-            className={`navbar-item ${isViewStalls ? 'active-page' : ''}`}
-          >
-            <span className="navbar-text-two-lines">
-              <span className="navbar-text-line1">View</span>
-              <span className="navbar-text-line2">Stalls</span>
-            </span>
-          </Link>
-          <Link
-            to="/view-reservations"
-            className={`navbar-item ${isViewReservations ? 'active-page' : ''}`}
+            to="/reservations"
+            className={`navbar-item ${isReservations ? 'active-page' : ''}`}
           >
             <span className="navbar-text-two-lines">
               <span className="navbar-text-line1">View</span>
               <span className="navbar-text-line2">Reservations</span>
+            </span>
+          </Link>
+          <Link
+            to="/vendors"
+            className={`navbar-item ${isVendors ? 'active-page' : ''}`}
+          >
+            <span className="navbar-text-two-lines">
+              <span className="navbar-text-line1">Manage</span>
+              <span className="navbar-text-line2">Vendors</span>
+            </span>
+          </Link>
+          <Link
+            to="/stall-maps"
+            className={`navbar-item ${isStallMaps ? 'active-page' : ''}`}
+          >
+            <span className="navbar-text-two-lines">
+              <span className="navbar-text-line1">Stall</span>
+              <span className="navbar-text-line2">Maps</span>
             </span>
           </Link>
           <Link

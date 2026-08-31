@@ -52,4 +52,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
      */
     @Query("SELECT DISTINCT rs.reservation FROM ReservationStall rs WHERE rs.stall.id = :stallId")
     List<Reservation> findByStalls_Id(@Param("stallId") Integer stallId);
+    
+    // Admin-specific methods
+    long countByExhibitionId(Integer exhibitionId);
+    
+    List<Reservation> findAllByExhibitionIdOrderByReservationDateDesc(Integer exhibitionId);
 }
