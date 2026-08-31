@@ -68,3 +68,15 @@ export const updateReservationGenres = async (genrePayload) => {
     throw err?.response?.data?.message || "Failed to update genres";
   }
 };
+
+export const updateStallDetails = async (stallId, reservationId, businessCategory, genres) => {
+  try {
+    const { data } = await api.put(`/reservations/${reservationId}/stall/${stallId}`, {
+      businessCategory,
+      genres
+    });
+    return data;
+  } catch (err) {
+    throw err?.response?.data?.message || "Failed to update stall details";
+  }
+};

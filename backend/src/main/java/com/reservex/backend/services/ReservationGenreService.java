@@ -3,6 +3,7 @@ package com.reservex.backend.services;
 import com.reservex.backend.dto.StallGenreRequest;
 import com.reservex.backend.entity.Reservation;
 import com.reservex.backend.entity.ReservationGenre;
+import com.reservex.backend.entity.ReservationStall;
 import com.reservex.backend.entity.User;
 import com.reservex.backend.repositories.ReservationGenreRepository;
 import com.reservex.backend.repositories.ReservationRepository;
@@ -68,13 +69,23 @@ public class ReservationGenreService {
         if (requests != null) {
             for (StallGenreRequest req : requests) {
                 if (req.getGenres() != null) {
-                    for (String genreName : req.getGenres()) {
-                        if (genreName != null && !genreName.isBlank()) {
-                            ReservationGenre genre = new ReservationGenre(
-                                    reservation,
-                                    req.getStallId(),
-                                    genreName.trim());
-                            reservation.getReservationGenres().add(genre);
+                    // Find the ReservationStall for this stallId
+                    ReservationStall reservationStall = reservation.getReservationStalls().stream()
+                            .filter(rs -> rs.getStall().getId().equals(req.getStallId()))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (reservationStall != null) {
+                        for (String genreName : req.getGenres()) {
+                            if (genreName != null && !genreName.isBlank()) {
+                                ReservationGenre genre = ReservationGenre.builder()
+                                        .reservation(reservation)
+                                        .stallId(req.getStallId())
+                                        .genreName(genreName.trim())
+                                        .reservationStallId(reservationStall.getId())
+                                        .build();
+                                reservation.getReservationGenres().add(genre);
+                            }
                         }
                     }
                 }

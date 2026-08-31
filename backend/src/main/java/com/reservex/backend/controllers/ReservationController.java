@@ -97,4 +97,38 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.getMyReservations(principal.getId()));
     }
 
+    @PutMapping("/{reservationId}/stall/{stallId}")
+    public ResponseEntity<?> updateStallDetails(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Integer reservationId,
+            @PathVariable Integer stallId,
+            @RequestBody Map<String, Object> body) {
+        try {
+            String businessCategory = body.get("businessCategory") != null 
+                ? body.get("businessCategory").toString() 
+                : null;
+            
+            @SuppressWarnings("unchecked")
+            List<String> genres = body.get("genres") != null 
+                ? (List<String>) body.get("genres")
+                : List.of();
+            
+            reservationService.updateStallDetails(
+                principal.getId(), 
+                reservationId, 
+                stallId, 
+                businessCategory, 
+                genres
+            );
+            
+            return ResponseEntity.ok(Map.of("message", "Stall details updated successfully"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "Failed to update stall details: " + e.getMessage()));
+        }
+    }
+
 }

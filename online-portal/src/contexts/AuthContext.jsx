@@ -128,8 +128,11 @@ export const AuthProvider = ({ children }) => {
                     }
 
                     // Trigger toast notification on successful SSO login/signup
-                    if (!hasNotifiedRef.current) {
+                    // Only show welcome message on actual login, not on page refresh
+                    const hasShownWelcome = sessionStorage.getItem("hasShownWelcome");
+                    if (!hasNotifiedRef.current && !hasShownWelcome) {
                         hasNotifiedRef.current = true;
+                        sessionStorage.setItem("hasShownWelcome", "true");
                         toast.success(`Welcome, ${vendorProfile.name || "Vendor"}!`);
                     }
                 } catch (err) {
@@ -147,6 +150,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = (userData, token) => {
         hasNotifiedRef.current = true;
+        sessionStorage.setItem("hasShownWelcome", "true");  // Mark welcome as shown
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(userData));
         setIsAuthenticated(true);
@@ -162,6 +166,7 @@ export const AuthProvider = ({ children }) => {
         hasNotifiedRef.current = false;
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        sessionStorage.removeItem("hasShownWelcome");  // Clear welcome flag on logout
         setIsAuthenticated(false);
         setUser(null);
         toast.success("Signed out successfully");

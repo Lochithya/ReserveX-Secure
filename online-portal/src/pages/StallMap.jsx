@@ -93,7 +93,8 @@ const StallMap = () => {
 
     } catch (error) {
       console.error("Reservation error:", error);
-      toast.error(error?.message || error || "Reservation Failed. Please try again.");
+      const errorMessage = typeof error === 'string' ? error : error?.message || "Reservation failed. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsReserving(false);
     }
@@ -272,21 +273,7 @@ const StallMap = () => {
         </div>
       )}
 
-      {/* Quota Warning */}
-      {REMAINING_QUOTA < MAX_STALLS_PER_VENDOR && REMAINING_QUOTA > 0 && (
-        <div className="w-full max-w-6xl mx-auto mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5 flex items-start gap-4 shadow-lg">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shrink-0 shadow-md">
-            <ExclamationTriangleIcon className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <p className="text-base font-black text-amber-900">Limited Availability</p>
-            <p className="text-sm text-amber-800 mt-1 leading-relaxed">
-              You have {existingBookings} active reservation{existingBookings !== 1 ? 's' : ''}. 
-              You can select up to <span className="font-bold text-orange-600">{REMAINING_QUOTA} more stall{REMAINING_QUOTA !== 1 ? 's' : ''}</span> from this exhibition.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* Stall Map Container with Legend on Right */}
       <div className="lg:flex lg:flex-col lg:justify-center items-center h-full">

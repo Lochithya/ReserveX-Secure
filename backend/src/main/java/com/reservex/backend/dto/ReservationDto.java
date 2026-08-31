@@ -46,7 +46,7 @@ public class ReservationDto {
 
                 return ReservationDto.builder()
                                 .id(r.getId())
-                                .qrCodeToken(r.getQrCodeToken() != null ? r.getQrCodeToken() : r.getQrCodePath())
+                                .qrCodeToken(r.getQrCodeToken())
                                 .reservationDate(r.getReservationDate())
                                 .status(r.getStatus().name())
                                 .specialRequirements(r.getSpecialRequirements())

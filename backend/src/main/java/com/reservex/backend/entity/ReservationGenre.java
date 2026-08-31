@@ -27,4 +27,7 @@ public class ReservationGenre {
     @Id
     @Column(name = "genre_name", nullable = false)
     private String genreName;
+    
+    @Column(name = "reservation_stall_id", nullable = false)
+    private Integer reservationStallId;
 }

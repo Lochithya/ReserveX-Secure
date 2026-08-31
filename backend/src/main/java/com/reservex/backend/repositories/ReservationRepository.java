@@ -17,7 +17,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
 
     Optional<Reservation> findTopByUserOrderByReservationDateDesc(User user);
 
-    Optional<Reservation> findByQrCodePath(String qrCodeToken);
+    Optional<Reservation> findByQrCodeToken(String qrCodeToken);
 
     @Query("""
             SELECT DISTINCT r

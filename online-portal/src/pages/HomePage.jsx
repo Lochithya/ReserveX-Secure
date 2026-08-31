@@ -7,23 +7,24 @@ import {
   CalendarDaysIcon,
   PlusIcon,
   UserIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  BriefcaseIcon
 } from "@heroicons/react/24/outline";
 import { AuthContext } from "../contexts/AuthContext";
-import { getMyReservations, updateReservationGenres } from "../services/reservation.service"
+import { getMyReservations, updateStallDetails } from "../services/reservation.service"
 import toast from "react-hot-toast";
-import GenreModal from "../components/GenreModal";
+import EditStallModal from "../components/EditStallModal";
 
 const HomePage = () => {
   const navigate = useNavigate();
 
   const { user, refreshUser, loading: authLoading } = useContext(AuthContext);
-  const [selectedGenres, setSelectedGenres] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
 
   const [isModalOpen, setModalOpen] = useState(false);
-  const [editingRes, setEditingRes] = useState(null); // Which reservation are we editing?
+  const [editingStall, setEditingStall] = useState(null);
+  const [editingReservationId, setEditingReservationId] = useState(null);
   const [saving, setSaving] = useState(false);
 
 
@@ -90,37 +91,36 @@ const HomePage = () => {
   };
 
   const handleEditClick = (reservation, stall) => {
-    setEditingRes({ ...reservation, currentStall: stall });
+    setEditingStall(stall);
+    setEditingReservationId(reservation.id);
     setModalOpen(true);
   };
 
-  const handleSaveGenres = async (reservationId, payloadArray) => {
+  const handleSaveStallDetails = async ({ stallId, reservationId, businessCategory, genres }) => {
     setSaving(true);
     try {
-      // Send the structured array to the backend
-      const response = await updateReservationGenres(payloadArray);
+      const response = await updateStallDetails(stallId, reservationId, businessCategory, genres);
 
-
-      const flatGenres = [...new Set(payloadArray.flatMap(p => p.genres))];
-
+      // Update local state
       setReservations(prev => prev.map(res =>
         res.id === reservationId
           ? {
             ...res,
-            stalls: res.stalls.map(s => ({
-              ...s,
-              genres: payloadArray.find(p => p.stallId === s.id)?.genres || []
-            }))
+            stalls: res.stalls.map(s => 
+              s.id === stallId
+                ? { ...s, businessCategory, genres }
+                : s
+            )
           }
           : res
       ));
 
-      toast.success(response.message || "Genres updated successfully!");
+      toast.success(response.message || "Stall details updated successfully!");
       setModalOpen(false);
 
     } catch (error) {
       console.error(error);
-      toast.error(error || "Failed to save genres");
+      toast.error(error || "Failed to save stall details");
     } finally {
       setSaving(false);
     }
@@ -191,51 +191,60 @@ const HomePage = () => {
       {/* 2. DASHBOARD CONTENT */}
       <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Updated for multi-exhibition system */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          {/* Total Reservations */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl shadow-sm border border-blue-100 hover:shadow-lg transition-all">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">Stalls Booked</p>
-                <h3 className="text-3xl font-bold text-slate-800">
-                  {user?.noOfCurrentBookings ?? 0} <span className="text-lg text-slate-400 font-medium">/ 3</span>
+                <p className="text-sm font-semibold text-blue-600 mb-1">Total Reservations</p>
+                <h3 className="text-4xl font-black text-blue-900">
+                  {reservations.length}
                 </h3>
+                <p className="text-xs text-blue-600 mt-1">Across all exhibitions</p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50">
-                <TicketIcon className="w-6 h-6 text-blue-600" />
+              <div className="p-3 rounded-xl bg-blue-600 shadow-md">
+                <TicketIcon className="w-7 h-7 text-white" />
               </div>
             </div>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-100 rounded-full h-2.5 mt-2 overflow-hidden border border-slate-200/50">
-              <div
-                className={`h-2.5 rounded-full transition-all duration-700 ${(user?.noOfCurrentBookings ?? 0) >= 3 ? 'bg-amber-500' : 'bg-blue-600'}`}
-                style={{ width: `${Math.min(((user?.noOfCurrentBookings ?? 0) / 3) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-xs text-slate-400 mt-2 font-medium">
-              {(user?.noOfCurrentBookings ?? 0) >= 3
-                ? <span className="text-amber-600">Maximum quota reached</span>
-                : `${3 - (user?.noOfCurrentBookings ?? 0)} more slots available`}
-            </p>
           </div>
-          <StatCard
-            title="Total Stalls (Lifetime)"
-            value="3"
-            icon={<BuildingStorefrontIcon className="w-6 h-6 text-emerald-600" />}
-            bg="bg-emerald-50"
-          />
-          <StatCard
-            title="Approved Reservations"
-            value={reservations.filter(res => res.status?.toUpperCase() === "APPROVED").length}
-            icon={<BookOpenIcon className="w-6 h-6 text-purple-600" />}
-            bg="bg-purple-50"
-          />
+
+          {/* Total Stalls Booked */}
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl shadow-sm border border-emerald-100 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-sm font-semibold text-emerald-600 mb-1">Total Stalls Booked</p>
+                <h3 className="text-4xl font-black text-emerald-900">
+                  {reservations.reduce((total, res) => total + (res.stalls?.length || 0), 0)}
+                </h3>
+                <p className="text-xs text-emerald-600 mt-1">Active across events</p>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-600 shadow-md">
+                <BuildingStorefrontIcon className="w-7 h-7 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Approved Reservations */}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl shadow-sm border border-purple-100 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="text-sm font-semibold text-purple-600 mb-1">Approved Reservations</p>
+                <h3 className="text-4xl font-black text-purple-900">
+                  {reservations.filter(res => res.status?.toUpperCase() === "APPROVED").length}
+                </h3>
+                <p className="text-xs text-purple-600 mt-1">Confirmed bookings</p>
+              </div>
+              <div className="p-3 rounded-xl bg-purple-600 shadow-md">
+                <BookOpenIcon className="w-7 h-7 text-white" />
+              </div>
+            </div>
+          </div>
         </div>
 
 
 
-        <div className="max-w-7xl mx-auto px-6 py-8 -mt-8 relative z-20">
+        <div className="max-w-[1600px] mx-auto px-6 py-8 -mt-8 relative z-20">
 
           {/* Reservation Table Card */}
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden mt-6">
@@ -264,142 +273,179 @@ const HomePage = () => {
               </div>
             ) : (
               <div className="space-y-6 p-6">
-                {reservations.map((reservation) => (
-                  <div key={reservation.id} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                {reservations.map((reservation, index) => (
+                  <div key={reservation.id} className="group border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300">
                     {/* Reservation Header with Exhibition Info */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-                      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                    <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-6 relative overflow-hidden">
+                      {/* Decorative background pattern */}
+                      <div className="absolute inset-0 opacity-10">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -mr-32 -mt-32"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full -ml-24 -mb-24"></div>
+                      </div>
+                      
+                      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="font-mono text-sm bg-white/20 px-3 py-1 rounded-full">
-                              Reservation #{reservation.id}
-                            </span>
-                            <span className={`px-3 py-1 rounded-full font-bold text-xs uppercase ${
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase shadow-lg ${
                               reservation.status?.toUpperCase() === 'APPROVED'
                                 ? 'bg-emerald-400 text-emerald-900'
                                 : reservation.status?.toUpperCase() === 'REJECTED'
                                 ? 'bg-red-400 text-red-900'
                                 : 'bg-amber-400 text-amber-900'
                             }`}>
-                              {reservation.status}
+                              ✓ {reservation.status}
+                            </span>
+                            <span className="text-xs font-medium bg-white/20 px-3 py-1 rounded-full">
+                              {reservation.stalls?.length || 0} Stall{reservation.stalls?.length !== 1 ? 's' : ''}
                             </span>
                           </div>
-                          <h3 className="text-2xl font-bold mb-2">{reservation.exhibitionName || 'Exhibition'}</h3>
-                          <p className="text-blue-100 text-sm mb-3">{reservation.exhibitionDescription}</p>
+                          <h3 className="text-2xl md:text-3xl font-black mb-2 leading-tight">{reservation.exhibitionName || 'Exhibition'}</h3>
+                          <p className="text-blue-100 text-sm mb-4 leading-relaxed max-w-2xl">{reservation.exhibitionDescription}</p>
                           <div className="flex flex-wrap gap-4 text-sm">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm">
                               <BuildingStorefrontIcon className="w-4 h-4" />
-                              <span>{reservation.exhibitionVenue}, {reservation.exhibitionCity}</span>
+                              <span className="font-medium">{reservation.exhibitionVenue}, {reservation.exhibitionCity}</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm">
                               <CalendarDaysIcon className="w-4 h-4" />
-                              <span>{reservation.exhibitionStartDate} to {reservation.exhibitionEndDate}</span>
+                              <span className="font-medium">{reservation.exhibitionStartDate} to {reservation.exhibitionEndDate}</span>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-blue-100 text-xs mb-1">QR Code Token</p>
-                          <p className="font-mono font-bold text-sm bg-white/20 px-3 py-2 rounded-lg break-all">
-                            {reservation.qrCodeToken?.substring(0, 16)}...
-                          </p>
                         </div>
                       </div>
                     </div>
 
                     {/* Special Requirements */}
                     {reservation.specialRequirements && (
-                      <div className="bg-amber-50 border-b border-amber-200 p-4">
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 p-5">
                         <div className="flex items-start gap-3">
-                          <span className="text-2xl">📝</span>
-                          <div>
-                            <p className="font-bold text-amber-900 text-sm mb-1">Special Requirements</p>
-                            <p className="text-amber-800 text-sm">{reservation.specialRequirements}</p>
+                          <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
+                            <span className="text-xl">📝</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-amber-900 text-sm mb-1 flex items-center gap-2">
+                              Special Requirements
+                              <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Custom</span>
+                            </p>
+                            <p className="text-amber-800 text-sm leading-relaxed">{reservation.specialRequirements}</p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {/* Stalls Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                    <div className="overflow-x-auto bg-white">
+                      <table className="w-full text-left text-sm table-fixed">
+                        <colgroup>
+                          <col className="w-[30%]" />
+                          <col className="w-[12%]" />
+                          <col className="w-[15%]" />
+                          <col className="w-[12%]" />
+                          <col className="w-[18%]" />
+                          <col className="w-[13%]" />
+                        </colgroup>
+                        <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
                           <tr>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Stall Details</th>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Type & Size</th>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Business Category</th>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Price</th>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Genres</th>
-                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase text-right">Actions</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide">Stall Details</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide">Type & Size</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide">Business Category</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide">Price</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide">Genres</th>
+                            <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wide text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {reservation.stalls?.map((stall) => (
-                            <tr key={stall.id} className="hover:bg-blue-50/30 transition-colors">
-                              <td className="px-6 py-4">
-                                <div>
-                                  <p className="font-bold text-slate-900">{stall.name}</p>
-                                  <p className="text-xs text-slate-500 mt-1">
+                          {reservation.stalls
+                            ?.sort((a, b) => {
+                              // Sort by stall ID to maintain consistent order
+                              return (a.id || 0) - (b.id || 0);
+                            })
+                            ?.map((stall, stallIndex) => (
+                            <tr key={stall.id} className="h-32 hover:bg-blue-50/50 transition-colors group/row">
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20 overflow-hidden">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 font-bold text-xs flex items-center justify-center shrink-0">
+                                      {stallIndex + 1}
+                                    </span>
+                                    <p className="font-bold text-slate-900 truncate">{stall.name}</p>
+                                  </div>
+                                  <p className="text-xs text-slate-500 ml-10 leading-relaxed line-clamp-2">
                                     {stall.description || 'Standard exhibition space'}
                                   </p>
                                   {stall.gridRow !== undefined && stall.gridCol !== undefined && (
-                                    <p className="text-xs text-slate-400 mt-1">
+                                    <p className="text-xs text-slate-400 ml-10 font-mono truncate">
                                       Position: Row {stall.gridRow}, Col {stall.gridCol}
                                     </p>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-6 py-4">
-                                <div>
-                                  <span className="font-semibold text-slate-800">{stall.size}</span>
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20">
+                                  <span className="font-bold text-slate-900 text-base block">{stall.size}</span>
                                   {stall.type && (
-                                    <span className={`block mt-1 text-xs font-bold px-2 py-1 rounded inline-block ${
+                                    <span className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg inline-block shadow-sm ${
                                       stall.type === 'Premium' 
-                                        ? 'bg-purple-100 text-purple-700' 
+                                        ? 'bg-purple-100 text-purple-700 border border-purple-200' 
                                         : stall.type === 'Corner Stall'
-                                        ? 'bg-orange-100 text-orange-700'
-                                        : 'bg-slate-100 text-slate-700'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
                                     }`}>
                                       {stall.type}
                                     </span>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-6 py-4">
-                                <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
-                                  {stall.businessCategory || 'General'}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="font-bold text-slate-900">
-                                  Rs. {(stall.price || 0).toLocaleString()}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex flex-wrap gap-1.5">
-                                  {stall.genres && stall.genres.length > 0 ? (
-                                    <>
-                                      {stall.genres.slice(0, 2).map(g => (
-                                        <span key={g} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded border border-blue-100">
-                                          {g}
-                                        </span>
-                                      ))}
-                                      {stall.genres.length > 2 && (
-                                        <span className="text-slate-400 text-xs">+{stall.genres.length - 2}</span>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <span className="text-slate-400 italic text-xs">Not set</span>
-                                  )}
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20 flex items-start">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-indigo-100 to-blue-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 shadow-sm">
+                                    <BriefcaseIcon className="w-3.5 h-3.5 shrink-0" />
+                                    <span className="truncate">{stall.businessCategory || 'General'}</span>
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-right">
-                                <button
-                                  onClick={() => handleEditClick(reservation, stall)}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all"
-                                >
-                                  <PencilSquareIcon className="w-3.5 h-3.5" />
-                                  Edit Genres
-                                </button>
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20 flex items-start">
+                                  <span className="text-xl font-black text-emerald-600 whitespace-nowrap">
+                                    Rs. {(stall.price || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20 overflow-hidden">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {stall.genres && stall.genres.length > 0 ? (
+                                      <>
+                                        {[...stall.genres]
+                                          .sort((a, b) => a.localeCompare(b))
+                                          .slice(0, 3)
+                                          .map((g, idx) => (
+                                            <span key={idx} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-md border border-blue-100 truncate max-w-[120px]">
+                                              {g}
+                                            </span>
+                                          ))}
+                                        {stall.genres.length > 3 && (
+                                          <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-md whitespace-nowrap">
+                                            +{stall.genres.length - 3} more
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span className="text-slate-400 italic text-xs bg-slate-50 px-3 py-1 rounded-md">Not set</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 align-top">
+                                <div className="h-20 flex items-start justify-end">
+                                  <button
+                                    onClick={() => handleEditClick(reservation, stall)}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm hover:shadow-md group-hover/row:border-indigo-200 whitespace-nowrap"
+                                  >
+                                    <PencilSquareIcon className="w-4 h-4" />
+                                    Edit Details
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -416,11 +462,12 @@ const HomePage = () => {
 
       </div>
 
-      <GenreModal
+      <EditStallModal
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={handleSaveGenres}
-        reservation={editingRes}
+        onSave={handleSaveStallDetails}
+        stall={editingStall}
+        reservationId={editingReservationId}
         isLoading={saving}
       />
 

@@ -45,25 +45,19 @@ public class Reservation {
     @Column(name = "no_of_stalls_required", nullable = false)
     private Integer noOfStallsRequired = 1;
 
-    @Column(name = "business_category", nullable = false)
-    private String businessCategory;
-
     @Column(name = "special_requirements", columnDefinition = "TEXT")
     private String specialRequirements;
 
     @Column(name = "qr_code_token", length = 36)
     private String qrCodeToken;
 
-    @Column(name = "qr_code_path")
-    private String qrCodePath;
-
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReservationGenre> reservationGenres = new HashSet<>();
 
     public enum Status {
-        Pending,
-        Approved,
-        Rejected 
+        PENDING,
+        APPROVED,
+        REJECTED 
     }
 
     @PrePersist
@@ -71,7 +65,7 @@ public class Reservation {
         if (reservationDate == null) reservationDate = Instant.now();
         // Generate QR code token if not set
         if (qrCodeToken == null) qrCodeToken = UUID.randomUUID().toString();
-        if (status == null) status = Status.Approved;
+        if (status == null) status = Status.APPROVED;
         // Set noOfStallsRequired from actual reservationStalls count if not set
         if (noOfStallsRequired == null || noOfStallsRequired == 0) {
             noOfStallsRequired = reservationStalls != null ? reservationStalls.size() : 1;

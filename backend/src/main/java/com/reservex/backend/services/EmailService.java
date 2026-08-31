@@ -44,7 +44,7 @@ public class EmailService {
       // Generate QR code with reservation details
       byte[] qrBytes = qrCodeService.generateQrCodeForReservationWithDetails(
           reservation.getId(),
-          reservation.getQrCodeToken() != null ? reservation.getQrCodeToken() : reservation.getQrCodePath(),
+          reservation.getQrCodeToken(),
           user.getBusinessName() != null ? user.getBusinessName() : user.getUsername()
       );
       
@@ -331,7 +331,7 @@ public class EmailService {
             user.getBusinessName() != null ? user.getBusinessName() : "Vendor",
             user.getBusinessName() != null ? user.getBusinessName() : "N/A",
             stallList.toString(),
-            reservation.getQrCodePath());
+            reservation.getQrCodeToken());
   }
 
   public void sendContactUsEmail(ContactRequest request) {

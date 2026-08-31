@@ -33,6 +33,9 @@ const EnhancedReservationModal = ({
   
   // State for special requirements
   const [specialRequirements, setSpecialRequirements] = useState('');
+  
+  // State for validation error
+  const [validationError, setValidationError] = useState('');
 
   if (!isOpen) return null;
 
@@ -55,6 +58,7 @@ const EnhancedReservationModal = ({
       ...prev,
       [stallId]: category
     }));
+    setValidationError(''); // Clear error when user selects
   };
 
   // Handle confirm with validation
@@ -63,7 +67,7 @@ const EnhancedReservationModal = ({
     const missingCategories = selectedStalls.filter(stall => !stallBusinessCategories[stall.id]);
     
     if (missingCategories.length > 0) {
-      alert(`Please select business category for all stalls`);
+      setValidationError('Please select a business category for all stalls');
       return;
     }
 
@@ -285,6 +289,14 @@ const EnhancedReservationModal = ({
               </p>
             </div>
           </div>
+
+          {/* Validation Error Message */}
+          {validationError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+              <InformationCircleIcon className="w-5 h-5 shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4 pt-2">

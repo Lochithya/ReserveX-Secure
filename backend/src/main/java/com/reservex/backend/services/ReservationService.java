@@ -7,6 +7,7 @@ package com.reservex.backend.services;
 import com.reservex.backend.dto.ReservationDto;
 import com.reservex.backend.entity.Exhibition;
 import com.reservex.backend.entity.Reservation;
+import com.reservex.backend.entity.ReservationGenre;
 import com.reservex.backend.entity.ReservationStall;
 import com.reservex.backend.entity.Stall;
 import com.reservex.backend.entity.User;
@@ -33,6 +34,7 @@ public class ReservationService {
     private final StallRepository stallRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final com.reservex.backend.repositories.ReservationGenreRepository genreRepository;
 
     /**
      * Convenience method for reserving a single stall.
@@ -100,8 +102,7 @@ public class ReservationService {
         Reservation reservation = Reservation.builder()
                 .user(user)
                 .exhibition(exhibition)
-                .status(Reservation.Status.Approved)
-                .businessCategory("General")  // This is for the reservation
+                .status(Reservation.Status.APPROVED)
                 .specialRequirements(specialRequirements)  // User's special requirements
                 .noOfStallsRequired(newBookings)
                 .build();
@@ -177,5 +178,47 @@ public class ReservationService {
         return reservationRepository.findAllWithDetails().stream()
                 .map(ReservationDto::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void updateStallDetails(Integer userId, Integer reservationId, Integer stallId, String businessCategory, List<String> genres) {
+        // Verify user owns this reservation
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Reservation not found"));
+        
+        if (!reservation.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("You don't have permission to modify this reservation");
+        }
+        
+        // Find and update the ReservationStall
+        ReservationStall reservationStall = reservation.getReservationStalls().stream()
+                .filter(rs -> rs.getStall().getId().equals(stallId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Stall not found in this reservation"));
+        
+        // Update business category
+        if (businessCategory != null) {
+            reservationStall.setBusinessCategory(businessCategory);
+        }
+        
+        // Delete existing genres for this stall using query
+        genreRepository.deleteByReservationIdAndStallId(reservationId, stallId);
+        
+        // Flush to ensure deletes are executed
+        genreRepository.flush();
+        
+        // Add new genres
+        for (String genreName : genres) {
+            ReservationGenre rg = ReservationGenre.builder()
+                    .reservation(reservation)
+                    .stallId(stallId)
+                    .genreName(genreName)
+                    .reservationStallId(reservationStall.getId())  // Set the reservation_stall_id
+                    .build();
+            genreRepository.save(rg);
+        }
+        
+        // Save the reservation (will update the business category)
+        reservationRepository.save(reservation);
     }
 }
