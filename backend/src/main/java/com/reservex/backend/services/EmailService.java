@@ -44,7 +44,7 @@ public class EmailService {
       // Generate QR code with reservation details
       byte[] qrBytes = qrCodeService.generateQrCodeForReservationWithDetails(
           reservation.getId(),
-          reservation.getQrCodePath(),
+          reservation.getQrCodeToken() != null ? reservation.getQrCodeToken() : reservation.getQrCodePath(),
           user.getBusinessName() != null ? user.getBusinessName() : user.getUsername()
       );
       

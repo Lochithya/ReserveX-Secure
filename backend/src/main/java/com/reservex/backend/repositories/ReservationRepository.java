@@ -23,7 +23,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
             SELECT DISTINCT r
             FROM Reservation r
             JOIN FETCH r.user u
-            LEFT JOIN FETCH r.stalls s
+            LEFT JOIN FETCH r.reservationStalls rs
+            LEFT JOIN FETCH rs.stall s
             LEFT JOIN FETCH r.reservationGenres rg
             """)
     List<Reservation> findAllWithDetails();
@@ -32,7 +33,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
             SELECT DISTINCT r
             FROM Reservation r
             JOIN FETCH r.user u
-            LEFT JOIN FETCH r.stalls s
+            LEFT JOIN FETCH r.reservationStalls rs
+            LEFT JOIN FETCH rs.stall s
             LEFT JOIN FETCH r.reservationGenres rg
             WHERE r.user = :user
             ORDER BY r.reservationDate DESC
@@ -42,10 +44,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Intege
     /**
      * Used to check whether a given stall is already attached to any reservation.
      */
-    boolean existsByStalls_Id(Integer stallId);
+    @Query("SELECT CASE WHEN COUNT(rs) > 0 THEN true ELSE false END FROM ReservationStall rs WHERE rs.stall.id = :stallId")
+    boolean existsByStalls_Id(@Param("stallId") Integer stallId);
 
     /**
      * Find all reservations that contain the given stall.
      */
-    List<Reservation> findByStalls_Id(Integer stallId);
+    @Query("SELECT DISTINCT rs.reservation FROM ReservationStall rs WHERE rs.stall.id = :stallId")
+    List<Reservation> findByStalls_Id(@Param("stallId") Integer stallId);
 }

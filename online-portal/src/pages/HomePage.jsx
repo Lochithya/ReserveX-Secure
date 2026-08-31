@@ -17,7 +17,7 @@ import GenreModal from "../components/GenreModal";
 const HomePage = () => {
   const navigate = useNavigate();
 
-  const { user, refreshUser } = useContext(AuthContext);
+  const { user, refreshUser, loading: authLoading } = useContext(AuthContext);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -29,21 +29,61 @@ const HomePage = () => {
 
 
   useEffect(() => {
-    loadDashboard()
-    console.log(user)
-  }, [])
+    // Wait for auth to be ready AND token to exist before loading dashboard
+    const token = localStorage.getItem("token");
+    
+    if (!authLoading) {
+      if (user && token) {
+        console.log("Auth ready, user exists, token exists - loading dashboard");
+        loadDashboard();
+      } else {
+        console.log("Auth ready but no user or no token");
+        setLoadingData(false);
+      }
+    } else {
+      console.log("Auth still loading...");
+    }
+  }, [authLoading, user])
 
   const loadDashboard = async () => {
     try {
+      // Check if token exists
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found in localStorage");
+        setReservations([]);
+        setLoadingData(false);
+        return;
+      }
+
+      console.log("Token found, fetching reservations...");
+      console.log("Token preview:", token.substring(0, 20) + "...");
+      
       // Refresh user data to get latest booking count
-      await refreshUser();
+      try {
+        await refreshUser();
+      } catch (err) {
+        console.warn("Could not refresh user, continuing...", err);
+      }
       
       const data = await getMyReservations();
-      setReservations(data);
-      console.log(data)
+      setReservations(data || []);
+      console.log("Reservations data:", data)
     } catch (error) {
-      console.log(error)
-      toast.error(error || "Failed to load reservations");
+      console.error("loadDashboard error:", error);
+      
+      // Check if it's an authentication error
+      if (error?.includes?.("authentication") || error?.includes?.("401")) {
+        console.error("Authentication error - clearing localStorage");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        toast.error("Session expired. Please login again.");
+        navigate("/login");
+      } else {
+        // Just show empty state, don't error for no reservations
+        console.log("Setting empty reservations");
+        setReservations([]);
+      }
     } finally {
       setLoadingData(false);
     }
@@ -116,14 +156,6 @@ const HomePage = () => {
                 Explore an event to choose the right venue and stall for your business.
               </p>
             </div>
-
-
-            {/* <div className="flex gap-3">
-               <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition border border-white/10">
-                  <DocumentArrowDownIcon className="w-4 h-4" />
-                  Floor Plan.pdf
-               </button>
-            </div> */}
           </div>
 
 
@@ -208,7 +240,8 @@ const HomePage = () => {
           {/* Reservation Table Card */}
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden mt-6">
             <div className="px-8 py-5 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-semibold text-slate-800 text-lg">Your Reservations & Genres</h3>
+              <h3 className="font-semibold text-slate-800 text-lg">Your Reservations & Stall Details</h3>
+              <p className="text-sm text-slate-500 mt-1">Complete reservation details with exhibition information</p>
             </div>
 
             {reservations.length === 0 && !loadingData ? (
@@ -219,7 +252,7 @@ const HomePage = () => {
                 </div>
                 <h3 className="text-lg font-medium text-slate-900">No reservations yet</h3>
                 <p className="text-slate-500 max-w-sm mx-auto mb-6">
-                  You haven't booked any stalls for the upcoming book fair. Secure your spot now!
+                  You haven't booked any stalls yet. Secure your spot now!
                 </p>
                 <button
                   onClick={() => navigate("/exhibitions")}
@@ -228,76 +261,155 @@ const HomePage = () => {
                   <PlusIcon className="w-5 h-5" />
                   Explore Exhibitions
                 </button>
-              </div>)
-              : (<div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider text-xs border-b border-slate-200">
-                    <tr>
-                      <th className="px-8 py-4 font-semibold text-slate-600">Res ID</th>
-                      <th className="px-8 py-4 font-semibold text-slate-600">Stall</th>
-                      <th className="px-8 py-4 font-semibold text-slate-600">Status</th>
-                      <th className="px-8 py-4 font-semibold text-slate-600">Genres Displayed</th>
-                      <th className="px-8 py-4 font-semibold text-slate-600 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {reservations.flatMap((res) =>
-                      res.stalls?.map((stall) => (
-                        <tr key={`${res.id}-${stall.id}`} className="hover:bg-blue-50/30 transition-colors group">
-                          <td className="px-8 py-6 font-mono text-slate-900 font-bold text-base">#{res.id}</td>
-
-                          <td className="px-8 py-6">
-                            <span className="font-semibold text-slate-800 text-base">{stall.name}</span>
-                            <span className="text-sm text-slate-400 ml-2 font-medium">({stall.size})</span>
-                          </td>
-
-                          <td className="px-8 py-6">
-                            <span className={`px-2 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider border ${res.status?.toUpperCase() === 'APPROVED'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : res.status?.toUpperCase() === 'REJECTED'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                              }`}>
-                              {res.status}
+              </div>
+            ) : (
+              <div className="space-y-6 p-6">
+                {reservations.map((reservation) => (
+                  <div key={reservation.id} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    {/* Reservation Header with Exhibition Info */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-mono text-sm bg-white/20 px-3 py-1 rounded-full">
+                              Reservation #{reservation.id}
                             </span>
-                          </td>
-
-                          <td className="px-8 py-6">
-                            <div className="flex flex-wrap gap-2">
-                              {(() => {
-                                const allGenres = [...new Set((stall.genres || []))];
-                                return allGenres.length > 0 ? (
-                                  <>
-                                    {allGenres.slice(0, 3).map(g => (
-                                      <span key={g} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded border border-blue-100 shadow-sm">
-                                        {g}
-                                      </span>
-                                    ))}
-                                    {allGenres.length > 3 && (
-                                      <span className="text-slate-400 pl-1">+{allGenres.length - 3} more</span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span className="text-slate-400 italic text-sm">No genres added</span>
-                                );
-                              })()}
+                            <span className={`px-3 py-1 rounded-full font-bold text-xs uppercase ${
+                              reservation.status?.toUpperCase() === 'APPROVED'
+                                ? 'bg-emerald-400 text-emerald-900'
+                                : reservation.status?.toUpperCase() === 'REJECTED'
+                                ? 'bg-red-400 text-red-900'
+                                : 'bg-amber-400 text-amber-900'
+                            }`}>
+                              {reservation.status}
+                            </span>
+                          </div>
+                          <h3 className="text-2xl font-bold mb-2">{reservation.exhibitionName || 'Exhibition'}</h3>
+                          <p className="text-blue-100 text-sm mb-3">{reservation.exhibitionDescription}</p>
+                          <div className="flex flex-wrap gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <BuildingStorefrontIcon className="w-4 h-4" />
+                              <span>{reservation.exhibitionVenue}, {reservation.exhibitionCity}</span>
                             </div>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                            <button
-                              onClick={() => handleEditClick(res, stall)}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all ml-auto focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            >
-                              <PencilSquareIcon className="w-4 h-4" />
-                              Select Genres
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                            <div className="flex items-center gap-2">
+                              <CalendarDaysIcon className="w-4 h-4" />
+                              <span>{reservation.exhibitionStartDate} to {reservation.exhibitionEndDate}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-blue-100 text-xs mb-1">QR Code Token</p>
+                          <p className="font-mono font-bold text-sm bg-white/20 px-3 py-2 rounded-lg break-all">
+                            {reservation.qrCodeToken?.substring(0, 16)}...
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Special Requirements */}
+                    {reservation.specialRequirements && (
+                      <div className="bg-amber-50 border-b border-amber-200 p-4">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">📝</span>
+                          <div>
+                            <p className="font-bold text-amber-900 text-sm mb-1">Special Requirements</p>
+                            <p className="text-amber-800 text-sm">{reservation.specialRequirements}</p>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  </tbody>
-                </table>
-              </div>)}
+
+                    {/* Stalls Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Stall Details</th>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Type & Size</th>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Business Category</th>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Price</th>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase">Genres</th>
+                            <th className="px-6 py-3 text-xs font-bold text-slate-600 uppercase text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {reservation.stalls?.map((stall) => (
+                            <tr key={stall.id} className="hover:bg-blue-50/30 transition-colors">
+                              <td className="px-6 py-4">
+                                <div>
+                                  <p className="font-bold text-slate-900">{stall.name}</p>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    {stall.description || 'Standard exhibition space'}
+                                  </p>
+                                  {stall.gridRow !== undefined && stall.gridCol !== undefined && (
+                                    <p className="text-xs text-slate-400 mt-1">
+                                      Position: Row {stall.gridRow}, Col {stall.gridCol}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div>
+                                  <span className="font-semibold text-slate-800">{stall.size}</span>
+                                  {stall.type && (
+                                    <span className={`block mt-1 text-xs font-bold px-2 py-1 rounded inline-block ${
+                                      stall.type === 'Premium' 
+                                        ? 'bg-purple-100 text-purple-700' 
+                                        : stall.type === 'Corner Stall'
+                                        ? 'bg-orange-100 text-orange-700'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}>
+                                      {stall.type}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full">
+                                  {stall.businessCategory || 'General'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="font-bold text-slate-900">
+                                  Rs. {(stall.price || 0).toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {stall.genres && stall.genres.length > 0 ? (
+                                    <>
+                                      {stall.genres.slice(0, 2).map(g => (
+                                        <span key={g} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded border border-blue-100">
+                                          {g}
+                                        </span>
+                                      ))}
+                                      {stall.genres.length > 2 && (
+                                        <span className="text-slate-400 text-xs">+{stall.genres.length - 2}</span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-xs">Not set</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() => handleEditClick(reservation, stall)}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                                >
+                                  <PencilSquareIcon className="w-3.5 h-3.5" />
+                                  Edit Genres
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

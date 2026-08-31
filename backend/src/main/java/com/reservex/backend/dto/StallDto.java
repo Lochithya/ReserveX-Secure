@@ -11,6 +11,7 @@ public class StallDto {
     private Integer id;
     private String name;
     private String size;
+    private String type; // "Standard", "Premium", or "Corner Stall"
     private int gridCol;
     private int gridRow;
     private boolean Confirmed; // Since Jackson removes "is" prefix for boolean fields, we can name it
@@ -23,6 +24,7 @@ public class StallDto {
                 .id(stall.getId())
                 .name(stall.getName())
                 .size(stall.getSize().name())
+                .type(stall.getType()) // Maps directly from String field
                 .gridCol(stall.getGridCol())
                 .gridRow(stall.getGridRow())
                 .Confirmed(Boolean.TRUE.equals(stall.getIsConfirmed()))

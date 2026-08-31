@@ -13,17 +13,35 @@ const StallGrid = ({
   activeFilter
 }) => {
 
+  // Get stall type styling
+  const getStallTypeStyle = (type, size) => {
+    const sizeColors = {
+      'small': 'border-blue-400',
+      'medium': 'border-purple-400',
+      'large': 'border-orange-400'
+    };
+
+    const typeIndicator = {
+      'Premium': '✦',
+      'Corner Stall': '◆',
+      'Standard': '●'
+    };
+
+    return {
+      borderClass: sizeColors[size?.toLowerCase()] || 'border-blue-400',
+      indicator: typeIndicator[type] || typeIndicator['Standard']
+    };
+  };
+
   //LOADING STATE
   if (isLoading) {
     return (
       <div className="h-full min-h-100 flex flex-col items-center justify-center gap-3 animate-pulse">
         <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-        <p className="text-slate-400 text-sm font-medium">Loading map...</p>
+        <p className="text-slate-400 text-sm font-medium">Loading stall map...</p>
       </div>
     );
   }
-
-
 
   //EMPTY STATE
   if (!stalls || stalls.length === 0) {
@@ -36,18 +54,14 @@ const StallGrid = ({
     );
   }
 
-  // 3. YOUR EXACT GRID UI
   return (
-    <div className="grid gap-2 min-w-max lg:gap-5 
-        bg-slate-50 
-        bg-[image:linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] 
-        bg-[size:58px_58px] 
-        lg:bg-[size:70px_70px] 
-        border-t border-l border-slate-200"
+    <div 
+      className="inline-grid"
       style={{
-        gridAutoColumns: "50px",  // Width of 1 small block
-        gridAutoRows: "50px",     // Height of 1 small block
-        width: "max-content"      // Ensures the grid doesn't shrink
+        gridTemplateColumns: `auto repeat(${Math.max(...stalls.map(s => s.gridRow)) + 1}, 60px)`,
+        gridTemplateRows: `repeat(${totalRows}, 60px)`,
+        gap: '8px',
+        padding: '8px'
       }}
     >
       {/* ROW LABELS */}
@@ -57,10 +71,10 @@ const StallGrid = ({
           <div
             key={`row-label-${index}`}
             style={{
-              gridColumnStart: 1,
-              gridRowStart: index + 1,
+              gridColumn: 1,
+              gridRow: index + 1,
             }}
-            className="flex items-center justify-center font-bold text-slate-400 lg:text-lg"
+            className="flex items-center justify-center font-bold text-indigo-600 text-lg drop-shadow-sm"
           >
             {rowLetter}
           </div>
@@ -71,12 +85,17 @@ const StallGrid = ({
       {stalls.map((stall) => {
         const isReserved = stall?.Confirmed === true;
         const isSelected = selectedStalls.some((s) => s.id === stall.id);
+        const stallStyle = getStallTypeStyle(stall.type, stall.size);
 
         let isDimmed = false;
         if (activeFilter === "AVAILABLE" && isReserved) isDimmed = true;
         if (activeFilter === "SMALL" && stall.size?.toUpperCase() !== "SMALL") isDimmed = true;
         if (activeFilter === "MEDIUM" && stall.size?.toUpperCase() !== "MEDIUM") isDimmed = true;
         if (activeFilter === "LARGE" && stall.size?.toUpperCase() !== "LARGE") isDimmed = true;
+
+        // Get premium/corner indicator
+        const isPremium = stall.type === 'Premium';
+        const isCorner = stall.type === 'Corner Stall';
 
         return (
           <div
@@ -87,24 +106,51 @@ const StallGrid = ({
             onMouseLeave={handleMouseLeave}
             onTouchStart={() => setHoveredStall(stall)}
             style={{
-              // Your exact mapping
-              gridColumnStart: stall?.gridRow + 1,
-              gridRowStart: stall?.gridCol
+              gridColumn: stall?.gridRow + 2,
+              gridRow: stall?.gridCol
             }}
             className={`
+              relative group
               ${isReserved
-                ? "bg-slate-200 text-slate-400 border-slate-500 border "
+                ? "bg-gradient-to-br from-slate-200 to-slate-300 text-slate-500 border-slate-400 shadow-inner"
                 : isSelected
-                  ? "bg-blue-600 text-white border-blue-700 shadow-lg scale-105 z-10"
-                  : "bg-green-100 text-green-800 border border-green-400 hover:bg-green-500 hover:text-white cursor-pointer hover:shadow-md hover:scale-105"
+                  ? "bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white border-blue-400 shadow-xl shadow-blue-500/50 scale-105 z-10 ring-2 ring-blue-300"
+                  : `bg-gradient-to-br from-emerald-100 via-green-100 to-teal-100 text-emerald-800 ${stallStyle.borderClass} hover:from-emerald-400 hover:via-green-500 hover:to-teal-500 hover:text-white cursor-pointer hover:shadow-lg hover:shadow-green-500/30 hover:scale-105`
               }
               ${isDimmed && !isSelected ? "opacity-20 grayscale pointer-events-none" : "opacity-100"}
-              w-full h-full rounded-lg
-              flex flex-col items-center justify-center text-xs font-bold transition-all shadow-sm duration-300`
+              rounded-xl border-3
+              flex flex-col items-center justify-center text-xs font-bold transition-all duration-200 ease-out`
             }
           >
-            <span className="font-bold text-sm md:text-base leading-none mb-1">{stall.name}</span>
-            <span className="opacity-80 uppercase font-normal">{stall.size}</span>
+            {/* Type indicator badge - Enhanced */}
+            {(isPremium || isCorner) && !isReserved && !isSelected && (
+              <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] shadow-lg border-2 border-white
+                ${isPremium ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white' : 'bg-gradient-to-br from-orange-500 to-red-500 text-white'}`}>
+                {stallStyle.indicator}
+              </div>
+            )}
+
+            {/* Selection checkmark */}
+            {isSelected && (
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-blue-500">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            
+            <span className="font-bold text-sm leading-none mb-1 drop-shadow-sm">{stall.name}</span>
+            <span className="opacity-80 uppercase text-[10px] font-semibold tracking-wide">{stall.size}</span>
+            
+            {/* Price indicator for available stalls - Enhanced */}
+            {!isReserved && !isSelected && (
+              <span className="text-[9px] font-bold mt-0.5 px-1.5 py-0.5 bg-white/80 rounded-full shadow-sm">₨{(stall.price || 0).toLocaleString()}</span>
+            )}
+
+            {/* Hover glow effect */}
+            {!isReserved && !isSelected && (
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/0 to-white/0 group-hover:from-white/20 group-hover:to-transparent transition-all duration-200 pointer-events-none"></div>
+            )}
           </div>
         );
       })}

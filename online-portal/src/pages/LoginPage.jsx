@@ -57,13 +57,29 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       const response = await loginUser(email, password);
+      
+      console.log("Login response:", response);
+      
       if (response?.role?.toUpperCase() !== "VENDOR") {
         throw "Access Denied: This portal is for Vendors only.";
       }
+      
       const { token, type, ...userData } = response;
+      
+      // Verify token was saved
+      const savedToken = localStorage.getItem("token");
+      console.log("Token saved to localStorage:", savedToken ? "YES" : "NO");
+      
+      // Call AuthContext login to update state
       login(userData, token);
+      
       toast.success("Welcome back!");
-      navigate("/home");
+      
+      // Give a small delay to ensure state updates
+      setTimeout(() => {
+        navigate("/home");
+      }, 100);
+      
     } catch (errorMessage) {
       toast.error(typeof errorMessage === "string" ? errorMessage : "Login failed");
     } finally {

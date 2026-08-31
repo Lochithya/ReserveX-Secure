@@ -26,15 +26,14 @@ public class Reservation {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // one reservation -> many stalls (via join table)
-    @ManyToMany
-    @JoinTable(
-            name = "reservation_stalls",
-            joinColumns = @JoinColumn(name = "reservation_id"),
-            inverseJoinColumns = @JoinColumn(name = "stall_id")
-    )
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exhibition_id", nullable = false)
+    private Exhibition exhibition;
+
+    // one reservation -> many reservation_stalls (explicit join entity)
+    @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Set<Stall> stalls = new HashSet<>();
+    private Set<ReservationStall> reservationStalls = new HashSet<>();
 
     @Column(name = "reservation_date", nullable = false, updatable = false)
     private Instant reservationDate;
@@ -42,6 +41,18 @@ public class Reservation {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status;
+
+    @Column(name = "no_of_stalls_required", nullable = false)
+    private Integer noOfStallsRequired = 1;
+
+    @Column(name = "business_category", nullable = false)
+    private String businessCategory;
+
+    @Column(name = "special_requirements", columnDefinition = "TEXT")
+    private String specialRequirements;
+
+    @Column(name = "qr_code_token", length = 36)
+    private String qrCodeToken;
 
     @Column(name = "qr_code_path")
     private String qrCodePath;
@@ -58,10 +69,26 @@ public class Reservation {
     @PrePersist
     protected void onCreate() {
         if (reservationDate == null) reservationDate = Instant.now();
-        // You can store a token OR a file path in qr_code_path.
-        // If you're storing a token, generate it here:
-        if (qrCodePath == null) qrCodePath = UUID.randomUUID().toString();
+        // Generate QR code token if not set
+        if (qrCodeToken == null) qrCodeToken = UUID.randomUUID().toString();
         if (status == null) status = Status.Approved;
+        // Set noOfStallsRequired from actual reservationStalls count if not set
+        if (noOfStallsRequired == null || noOfStallsRequired == 0) {
+            noOfStallsRequired = reservationStalls != null ? reservationStalls.size() : 1;
+        }
+    }
+    
+    // Helper method to get stalls from reservationStalls
+    public Set<Stall> getStalls() {
+        Set<Stall> stalls = new HashSet<>();
+        if (reservationStalls != null) {
+            for (ReservationStall rs : reservationStalls) {
+                if (rs.getStall() != null) {
+                    stalls.add(rs.getStall());
+                }
+            }
+        }
+        return stalls;
     }
 
 }

@@ -33,7 +33,40 @@ export const AuthProvider = ({ children }) => {
         return !!localStorage.getItem("token");
     });
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Start as true, then set to false after check
+
+    // Initialize auth state on mount
+    useEffect(() => {
+        const initAuth = () => {
+            const token = localStorage.getItem("token");
+            const savedUser = localStorage.getItem("user");
+            
+            if (token && savedUser) {
+                try {
+                    const userObj = JSON.parse(savedUser);
+                    setUser(userObj);
+                    setIsAuthenticated(true);
+                    console.log("Auth initialized from localStorage");
+                } catch (error) {
+                    console.error("Failed to parse saved user:", error);
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    setIsAuthenticated(false);
+                    setUser(null);
+                }
+            } else {
+                setIsAuthenticated(false);
+                setUser(null);
+            }
+            
+            // If not using Auth0, loading is done
+            if (!auth0Loading && !auth0IsAuthenticated) {
+                setLoading(false);
+            }
+        };
+        
+        initAuth();
+    }, []);
 
     // Sync Auth0 session when authenticated via Auth0 SSO
     useEffect(() => {

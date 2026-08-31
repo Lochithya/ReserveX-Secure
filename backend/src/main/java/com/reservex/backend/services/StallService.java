@@ -106,6 +106,7 @@ public class StallService {
         Stall stall = Stall.builder()
                 .name(name)
                 .size(request.getSize())
+                .type(request.getType()) // Set the type field
                 .price(request.getPrice() != null ? request.getPrice() : 0.0)
                 .gridCol(request.getGridCol())
                 .gridRow(request.getGridRow())
@@ -140,6 +141,7 @@ public class StallService {
         
         stall.setName(name);
         stall.setSize(request.getSize());
+        stall.setType(request.getType()); // Set the type field
         stall.setPrice(request.getPrice() != null ? request.getPrice() : 0.0);
         stall.setGridCol(request.getGridCol());
         stall.setGridRow(request.getGridRow());

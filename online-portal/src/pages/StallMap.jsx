@@ -2,7 +2,10 @@ import React, { useEffect, useState, useMemo, useContext } from "react";
 import {
   MapPinIcon,
   CheckBadgeIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+  UserGroupIcon
 } from "@heroicons/react/24/outline";
 import BookingSummary from "../components/BookingSummary";
 import StallTooltip from "../components/StallTooltip";
@@ -10,7 +13,7 @@ import StallGrid from "../components/StallGrid";
 import { getExhibition, getExhibitionStalls } from "../services/exhibition.service";
 import toast from "react-hot-toast";
 import { AuthContext } from "../contexts/AuthContext";
-import ReservationModal from "../components/ReservationModal";
+import EnhancedReservationModal from "../components/EnhancedReservationModal";
 import { createReservation } from "../services/reservation.service";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -24,21 +27,26 @@ const StallMap = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReserving, setIsReserving] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("ALL"); // "ALL", "AVAILABLE", "SMALL", "MEDIUM", "LARGE"
+  const [activeFilter, setActiveFilter] = useState("ALL");
   const [exhibition, setExhibition] = useState(null);
   const { exhibitionId } = useParams();
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const existingBookings = user?.noOfCurrentBookings || 0;
-  const REMAINING_QUOTA = 3 - existingBookings;
+  
+  // Use exhibition's vendor limit or fallback to 3
+  const MAX_STALLS_PER_VENDOR = exhibition?.maxStallsPerVendor || 3;
+  const REMAINING_QUOTA = Math.max(0, MAX_STALLS_PER_VENDOR - existingBookings);
 
   const fetchStalls = async () => {
     try {
       setIsLoading(true);
-      const [event, data] = await Promise.all([getExhibition(exhibitionId), getExhibitionStalls(exhibitionId)]);
+      const [event, data] = await Promise.all([
+        getExhibition(exhibitionId), 
+        getExhibitionStalls(exhibitionId)
+      ]);
       setExhibition(event);
       setStalls(data);
-
     } catch (errorMessage) {
       toast.error(errorMessage);
     } finally {
@@ -46,284 +54,410 @@ const StallMap = () => {
     }
   };
 
-
-  const handleConfirmReservation = async () => {
+  const handleConfirmReservation = async ({ stallBusinessCategories, specialRequirements }) => {
     setIsReserving(true);
     try {
+      // Build payload with business categories per stall
+      const response = await createReservation(
+        selectedStalls, 
+        parseInt(exhibitionId),
+        stallBusinessCategories,
+        specialRequirements
+      );
 
-      const response = await createReservation(selectedStalls);
+      // Check for success response
+      if (response && (response.message || response.reservations || response.reservation)) {
+        toast.success(
+          response.message || "Reservation Confirmed! QR Code sent to email.",
+          { duration: 5000 }
+        );
 
-      toast.success(response.message || "Reservation Confirmed! QR Code sent to email.");
+        setSelectedStalls([]);
+        setIsModalOpen(false);
+        fetchStalls();
 
-      setSelectedStalls([]);
-      setIsModalOpen(false);
-      fetchStalls();
-
-      //increment it manually in the frontend context to be fast
-      const updatedUser = {
-        ...user,
-        noOfCurrentBookings: (user.noOfCurrentBookings || 0) + selectedStalls.length
-      };
-      login(updatedUser, localStorage.getItem("token"));
-      navigate("/home")
+        // Update user context
+        const updatedUser = {
+          ...user,
+          noOfCurrentBookings: (user.noOfCurrentBookings || 0) + selectedStalls.length
+        };
+        login(updatedUser, localStorage.getItem("token"));
+        
+        // Redirect after success
+        setTimeout(() => {
+          navigate("/home");
+        }, 1500);
+      } else {
+        throw new Error("Unexpected response format");
+      }
 
     } catch (error) {
-      toast.error(error || "Reservation Failed. Please try again.");
+      console.error("Reservation error:", error);
+      toast.error(error?.message || error || "Reservation Failed. Please try again.");
     } finally {
       setIsReserving(false);
     }
-
-  }
-
-
-
-  // const loadData=()=>{
-  //   setStalls(mockStalls)
-  //   console.log(mockStalls)
-  //   setIsLoading(false);
-  // }
+  };
 
   useEffect(() => {
-    fetchStalls()
-  }, [exhibitionId])
+    fetchStalls();
+  }, [exhibitionId]);
 
   const totalRows = useMemo(() => {
-    if (stalls.length === 0) return 10; // Default minimum
+    if (stalls.length === 0) return 10;
     const maxY = Math.max(...stalls.map((s) => s.gridCol));
     return maxY + 1;
   }, [stalls]);
 
   const stats = useMemo(() => {
-    const total = stalls.length
+    const total = stalls.length;
     const reserved = stalls.filter(s => s.Confirmed === true).length;
     const available = total - reserved;
     return { total, available, reserved };
   }, [stalls]);
 
-
-
-  //SELECTION LOGIC
+  // Enhanced selection logic with better feedback
   const handleStallClick = (stall) => {
-
-    if (stall.Confirmed === true) return;
+    if (stall.Confirmed === true) {
+      toast.error("This stall is already reserved by another vendor.");
+      return;
+    }
 
     const isSelected = selectedStalls.some((s) => s.id === stall.id);
 
     if (isSelected) {
       setSelectedStalls(selectedStalls.filter((s) => s.id !== stall.id));
-
+      toast.success(`Stall ${stall.name} removed from selection`);
     } else {
-      // Check stall limits (3 per one user)
-      if (selectedStalls.length >= 3) {
-        toast.error("You can only select up to 3 stalls per reservation.");
+      // Check vendor-specific limits
+      if (selectedStalls.length >= MAX_STALLS_PER_VENDOR) {
+        toast.error(
+          `Maximum ${MAX_STALLS_PER_VENDOR} stalls allowed per vendor for this exhibition.`,
+          { duration: 4000 }
+        );
         return;
       }
 
       if (selectedStalls.length >= REMAINING_QUOTA) {
         if (REMAINING_QUOTA <= 0) {
-          toast.error("You have reached the maximum limit of 3 active reservations.");
+          toast.error(
+            `You have reached the maximum limit of ${MAX_STALLS_PER_VENDOR} active reservations.`,
+            { duration: 4000 }
+          );
         } else {
-          toast.error(`You have ${existingBookings} active reservations. You can only select ${REMAINING_QUOTA} more stalls.`);
+          toast.error(
+            `You have ${existingBookings} active reservations. You can only select ${REMAINING_QUOTA} more stall${REMAINING_QUOTA !== 1 ? 's' : ''}.`,
+            { duration: 4000 }
+          );
         }
         return;
       }
+      
       setSelectedStalls([...selectedStalls, stall]);
+      toast.success(`Stall ${stall.name} added to selection (${selectedStalls.length + 1}/${MAX_STALLS_PER_VENDOR})`);
     }
   };
 
-
-  // Desktop Mouse Handlers-----------
+  // Desktop Mouse Handlers
   const handleMouseEnter = (stall, e) => {
     setHoveredStall(stall);
     moveCursor(e);
   };
 
-  const handleMouseMove = (e) => { if (hoveredStall) moveCursor(e); };
+  const handleMouseMove = (e) => { 
+    if (hoveredStall) moveCursor(e); 
+  };
 
-  const handleMouseLeave = () => { setHoveredStall(null); };
+  const handleMouseLeave = () => { 
+    setHoveredStall(null); 
+  };
 
   const moveCursor = (e) => {
-    // Offset by 15px - the tooltip doesn't block the mouse
     setCursorPos({ x: e.clientX + 15, y: e.clientY + 15 });
   };
-  //-------------------------------------------
-
 
   const handleReserve = () => {
-    setIsModalOpen(true); //open pop up
+    if (selectedStalls.length === 0) {
+      toast.error("Please select at least one stall to proceed.");
+      return;
+    }
+    setIsModalOpen(true);
   };
 
-
+  const handleModalClose = () => {
+    // Keep selection when modal is closed
+    setIsModalOpen(false);
+  };
 
   return (
-    <div className="flex flex-col item-center min-h-screen bg-gray-10 p-10 lg:py-5">
+    <div className="flex flex-col item-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 lg:p-10 lg:py-5">
 
-
-      {/* --- COMPACT, LIGHT HEADER --- */}
-      <div className="w-full max-w-5xl mx-auto mb-4 bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-
-        {/* Title & Subtitle */}
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <MapPinIcon className="w-6 h-6 text-blue-600" />
-            {exhibition?.name || "Exhibition stalls"}
+      {/* Enhanced Header with Exhibition Info */}
+      <div className="w-full max-w-6xl mx-auto mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/60 p-5 md:p-7 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        
+        <div className="flex-1">
+          <h2 className="text-xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <MapPinIcon className="w-6 h-6 text-white" />
+            </div>
+            {exhibition?.name || "Exhibition Stalls"}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            {exhibition ? `${exhibition.venue?.name} · ${new Date(`${exhibition.startDate}T00:00:00`).toLocaleDateString()} – ${new Date(`${exhibition.endDate}T00:00:00`).toLocaleDateString()}` : "Choose available stalls for this event."}
+          <p className="text-sm text-slate-600 mt-2 font-medium">
+            {exhibition ? (
+              <>
+                {exhibition.venue?.name} · {new Date(`${exhibition.startDate}T00:00:00`).toLocaleDateString()} – {new Date(`${exhibition.endDate}T00:00:00`).toLocaleDateString()}
+              </>
+            ) : (
+              "Choose available stalls for this event."
+            )}
           </p>
+          
+          {/* Vendor Limit Indicator */}
+          {exhibition?.maxStallsPerVendor && (
+            <div className="mt-3 inline-flex items-center gap-2 text-xs bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
+              <UserGroupIcon className="w-4 h-4" />
+              <span className="font-bold">
+                Vendor Limit: {MAX_STALLS_PER_VENDOR} stalls maximum
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Compact Stats Badges */}
-        <div className="flex gap-2 md:gap-3 w-full md:w-auto">
-
-          <div className="flex-1 md:flex-none flex flex-col items-center px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Total</span>
-            <span className="font-bold text-slate-700 leading-none mt-1">{stats.total}</span>
+        {/* Stats Badges */}
+        <div className="flex gap-3 md:gap-4 w-full md:w-auto">
+          <div className="flex-1 md:flex-none flex flex-col items-center px-4 py-3 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl shadow-md">
+            <span className="text-[10px] uppercase font-black text-slate-500 tracking-widest">Total</span>
+            <span className="font-black text-2xl text-slate-700 leading-none mt-1.5">{stats.total}</span>
           </div>
 
-          <div className="flex-1 md:flex-none flex flex-col items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg shadow-sm">
-            <span className="text-[10px] uppercase font-semibold text-emerald-600 tracking-wider">Available</span>
-            <span className="font-bold text-emerald-700 leading-none mt-1">{stats.available}</span>
+          <div className="flex-1 md:flex-none flex flex-col items-center px-4 py-3 bg-gradient-to-br from-emerald-50 to-green-100 border-2 border-emerald-300 rounded-xl shadow-md">
+            <span className="text-[10px] uppercase font-black text-emerald-700 tracking-widest">Available</span>
+            <span className="font-black text-2xl text-emerald-600 leading-none mt-1.5">{stats.available}</span>
           </div>
 
-          <div className="flex-1 md:flex-none flex flex-col items-center px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg">
-            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Reserved</span>
-            <span className="font-bold text-slate-500 leading-none mt-1">{stats.reserved}</span>
+          <div className="flex-1 md:flex-none flex flex-col items-center px-4 py-3 bg-gradient-to-br from-red-50 to-rose-100 border-2 border-red-300 rounded-xl shadow-md">
+            <span className="text-[10px] uppercase font-black text-red-700 tracking-widest">Reserved</span>
+            <span className="font-black text-2xl text-red-600 leading-none mt-1.5">{stats.reserved}</span>
           </div>
-
         </div>
       </div>
 
-      {/* map */}
+      {/* Selection Status Bar */}
+      {selectedStalls.length > 0 && (
+        <div className="w-full max-w-6xl mx-auto mb-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-6 text-white animate-fade-in border-2 border-white/30">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/30 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
+                <CheckBadgeIcon className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="font-black text-lg">
+                  {selectedStalls.length} Stall{selectedStalls.length !== 1 ? 's' : ''} Selected
+                </p>
+                <p className="text-sm text-blue-100 font-medium">
+                  {REMAINING_QUOTA - selectedStalls.length} more available from your quota
+                </p>
+                <p className="text-xs text-white/70 mt-1">
+                  💡 Click selected stalls to deselect them
+                </p>
+              </div>
+            </div>
+            <div className="text-center md:text-right">
+              <p className="text-4xl font-black leading-none">
+                Rs. {selectedStalls.reduce((sum, s) => sum + (s.price || 0), 0).toLocaleString()}
+              </p>
+              <p className="text-sm text-blue-100 font-semibold mt-1">Total Investment</p>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Quota Warning */}
+      {REMAINING_QUOTA < MAX_STALLS_PER_VENDOR && REMAINING_QUOTA > 0 && (
+        <div className="w-full max-w-6xl mx-auto mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5 flex items-start gap-4 shadow-lg">
+          <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shrink-0 shadow-md">
+            <ExclamationTriangleIcon className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <p className="text-base font-black text-amber-900">Limited Availability</p>
+            <p className="text-sm text-amber-800 mt-1 leading-relaxed">
+              You have {existingBookings} active reservation{existingBookings !== 1 ? 's' : ''}. 
+              You can select up to <span className="font-bold text-orange-600">{REMAINING_QUOTA} more stall{REMAINING_QUOTA !== 1 ? 's' : ''}</span> from this exhibition.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stall Map Container with Legend on Right */}
       <div className="lg:flex lg:flex-col lg:justify-center items-center h-full">
-        <div className="overflow-auto mb-6 p-5 max-w-5xl w-full max-h-[70vh] h-full border border-slate-200 rounded-lg bg-white">
+        <div className="mb-6 max-w-7xl w-full border-2 border-white/60 rounded-2xl bg-white/90 backdrop-blur-sm shadow-2xl p-6">
 
-          {/* --- QUICK FILTERS --- */}
-          <div className="flex flex-wrap gap-2 mb-4 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center px-2">Filter</span>
-            <button onClick={() => setActiveFilter("ALL")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${activeFilter === "ALL" ? "bg-slate-800 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"}`}>All</button>
-            <button onClick={() => setActiveFilter("AVAILABLE")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${activeFilter === "AVAILABLE" ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200" : "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50"}`}>Available</button>
-            <button onClick={() => setActiveFilter("SMALL")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${activeFilter === "SMALL" ? "bg-blue-600 text-white shadow-sm shadow-blue-200" : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"}`}>Small</button>
-            <button onClick={() => setActiveFilter("MEDIUM")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${activeFilter === "MEDIUM" ? "bg-purple-600 text-white shadow-sm shadow-purple-200" : "bg-white text-purple-700 border border-purple-200 hover:bg-purple-50"}`}>Medium</button>
-            <button onClick={() => setActiveFilter("LARGE")} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${activeFilter === "LARGE" ? "bg-orange-600 text-white shadow-sm shadow-orange-200" : "bg-white text-orange-700 border border-orange-200 hover:bg-orange-50"}`}>Large</button>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 mb-6 p-4 bg-gradient-to-r from-slate-50 to-blue-50 border-2 border-slate-200 rounded-xl shadow-inner">
+            <span className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center px-3 py-2 bg-white rounded-lg">
+              🔍 Filter by:
+            </span>
+            <button 
+              onClick={() => setActiveFilter("ALL")} 
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all duration-200 ${activeFilter === "ALL" ? "bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-lg scale-105" : "bg-white text-slate-700 border-2 border-slate-300 hover:bg-slate-100 hover:scale-105"}`}
+            >
+              All Stalls
+            </button>
+            <button 
+              onClick={() => setActiveFilter("AVAILABLE")} 
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all duration-200 ${activeFilter === "AVAILABLE" ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-300 scale-105" : "bg-white text-emerald-700 border-2 border-emerald-300 hover:bg-emerald-50 hover:scale-105"}`}
+            >
+              ✓ Available
+            </button>
+            <button 
+              onClick={() => setActiveFilter("SMALL")} 
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all duration-200 ${activeFilter === "SMALL" ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-300 scale-105" : "bg-white text-blue-700 border-2 border-blue-300 hover:bg-blue-50 hover:scale-105"}`}
+            >
+              Small
+            </button>
+            <button 
+              onClick={() => setActiveFilter("MEDIUM")} 
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all duration-200 ${activeFilter === "MEDIUM" ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-300 scale-105" : "bg-white text-purple-700 border-2 border-purple-300 hover:bg-purple-50 hover:scale-105"}`}
+            >
+              Medium
+            </button>
+            <button 
+              onClick={() => setActiveFilter("LARGE")} 
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all duration-200 ${activeFilter === "LARGE" ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-300 scale-105" : "bg-white text-orange-700 border-2 border-orange-300 hover:bg-orange-50 hover:scale-105"}`}
+            >
+              Large
+            </button>
           </div>
 
-          {/* --- NEW COMPONENT: STALL GRID --- */}
-          <StallGrid
-            stalls={stalls}
-            isLoading={isLoading}
-            totalRows={totalRows}
-            selectedStalls={selectedStalls}
-            handleStallClick={handleStallClick}
-            handleMouseEnter={handleMouseEnter}
-            handleMouseMove={handleMouseMove}
-            handleMouseLeave={handleMouseLeave}
-            setHoveredStall={setHoveredStall}
-            activeFilter={activeFilter}
-          />
+          {/* Grid and Legend Side by Side */}
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
+            
+            {/* Stall Grid - Left Side */}
+            <div className="flex-1 overflow-auto max-h-[65vh] border-2 border-slate-200 rounded-xl bg-gradient-to-br from-slate-50/50 to-blue-50/50 p-4">
+              <StallGrid
+                stalls={stalls}
+                isLoading={isLoading}
+                totalRows={totalRows}
+                selectedStalls={selectedStalls}
+                handleStallClick={handleStallClick}
+                handleMouseEnter={handleMouseEnter}
+                handleMouseMove={handleMouseMove}
+                handleMouseLeave={handleMouseLeave}
+                setHoveredStall={setHoveredStall}
+                activeFilter={activeFilter}
+              />
+            </div>
 
+            {/* Legend - Right Side */}
+            <div className="lg:w-64 w-full p-5 bg-gradient-to-br from-white via-blue-50 to-indigo-50 rounded-xl border-2 border-indigo-200 shadow-lg shrink-0">
+              <h3 className="text-center font-black text-slate-700 mb-4 text-sm uppercase tracking-wider flex items-center justify-center gap-2">
+                <SparklesIcon className="w-4 h-4 text-indigo-600" />
+                Stall Legend
+              </h3>
+              
+              {/* Legend Items in Column */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-emerald-300 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-100 to-green-200 border-2 border-emerald-400 shadow-sm shrink-0"></div>
+                  <span className="text-slate-800 text-sm font-bold">Available</span>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-slate-300 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-200 to-slate-300 border-2 border-slate-400 shrink-0"></div>
+                  <span className="text-slate-800 text-sm font-bold">Reserved</span>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-blue-400 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 border-2 border-blue-700 shadow-lg shrink-0"></div>
+                  <span className="text-slate-800 text-sm font-bold">Your Selection</span>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border-2 border-purple-300 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 border-2 border-purple-400 shrink-0">
+                    <SparklesIcon className="w-5 h-5 text-purple-600 absolute -top-1 -right-1" />
+                  </div>
+                  <span className="text-slate-800 text-sm font-bold">Premium/Corner</span>
+                </div>
+              </div>
+
+              {/* Tip Section */}
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-900 font-semibold flex items-start gap-2">
+                  <span className="text-base">💡</span>
+                  <span>Click a selected stall again to deselect it</span>
+                </p>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
-
-      {/* legend */}
-      <div className="flex flex-wrap justify-center gap-6 mb-6 p-4 bg-gray-50 rounded-lg">
-
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-emerald-100 border border-emerald-300"></div>
-          <span className="text-slate-600 text-sm">Available</span>
-        </div>
-
-
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-slate-100 border border-slate-200"></div>
-          <span className="text-slate-600 text-sm">Reserved</span>
-        </div>
-
-
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-blue-500 border border-blue-600 shadow-sm"></div>
-          <span className="text-slate-600 text-sm">Selected</span>
-        </div>
-      </div>
-
-
-      {/*Instructions*/}
-
+      {/* Instructions */}
       <div className="max-w-5xl mx-auto w-full mb-8 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
-
-        {/* Background decoration */}
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
 
         <h4 className="text-slate-800 font-extrabold text-lg text-center mb-8 relative z-10">
-          How to Setup Your Book Fair Presence
+          How to Reserve Your Exhibition Space
         </h4>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-
-          {/* Step 1 */}
           <div className="flex flex-col items-center text-center relative group">
             <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-sm">
               <MapPinIcon className="w-7 h-7" />
             </div>
-            <h5 className="font-bold text-slate-800 mb-2">1. Pick Your Spots</h5>
+            <h5 className="font-bold text-slate-800 mb-2">1. Select Your Stalls</h5>
             <p className="text-sm text-slate-500 leading-relaxed px-4">
-              Tap the <span className="text-emerald-600 font-semibold">green available stalls</span> on the map. You can select up to a maximum of 3 stalls for your business.
+              Click on <span className="text-emerald-600 font-semibold">green available stalls</span> on the map. 
+              You can select up to {MAX_STALLS_PER_VENDOR} stalls based on the exhibition's vendor limit.
             </p>
-            {/* Desktop connecting line */}
             <div className="hidden md:block absolute top-7 left-[60%] w-[80%] h-[2px] border-t-2 border-dashed border-slate-200"></div>
           </div>
 
-          {/* Step 2 */}
           <div className="flex flex-col items-center text-center relative group">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shadow-sm">
               <CheckBadgeIcon className="w-7 h-7" />
             </div>
-            <h5 className="font-bold text-slate-800 mb-2">2. Secure Reservation</h5>
+            <h5 className="font-bold text-slate-800 mb-2">2. Confirm Reservation</h5>
             <p className="text-sm text-slate-500 leading-relaxed px-4">
-              Review your total cost and click reserve. You will receive an official QR code receipt via email.
+              Review your selection, total cost, and exhibition details. Click "Reserve Stalls" to confirm. 
+              You'll receive a QR code via email.
             </p>
-            {/* Desktop connecting line */}
             <div className="hidden md:block absolute top-7 left-[60%] w-[80%] h-[2px] border-t-2 border-dashed border-slate-200"></div>
           </div>
 
-          {/* Step 3 */}
           <div className="flex flex-col items-center text-center group">
             <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shadow-sm">
               <BookOpenIcon className="w-7 h-7" />
             </div>
-            <h5 className="font-bold text-slate-800 mb-2">3. Assign Genres</h5>
+            <h5 className="font-bold text-slate-800 mb-2">3. Manage Your Stalls</h5>
             <p className="text-sm text-slate-500 leading-relaxed px-4">
-              Head over to your <span className="text-blue-600 font-semibold">Home page</span> to assign genres to each individual stall.
+              Visit your <span className="text-blue-600 font-semibold">Home page</span> to assign genres, 
+              view QR codes, and manage all your reservations.
             </p>
           </div>
-
         </div>
       </div>
 
-      {/* summery */}
+      {/* Booking Summary */}
       <BookingSummary
         selectedStalls={selectedStalls}
         onReserve={handleReserve}
         quota={REMAINING_QUOTA}
       />
 
-      {/* description- float when hover */}
+      {/* Hover Tooltip */}
       <StallTooltip stall={hoveredStall} position={cursorPos} />
 
-
-      {/* {confirmation box when reserve} */}
-      <ReservationModal
+      {/* Reservation Modal */}
+      <EnhancedReservationModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleModalClose}
         onConfirm={handleConfirmReservation}
         selectedStalls={selectedStalls}
         isLoading={isReserving}
+        exhibition={exhibition}
       />
-
-
-
     </div>
   );
 };

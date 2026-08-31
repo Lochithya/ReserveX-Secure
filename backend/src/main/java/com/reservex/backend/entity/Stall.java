@@ -31,6 +31,9 @@ public class Stall {
     @Column(nullable = false)
     private StallSize size;
 
+    @Column(nullable = false)
+    private String type; // "Standard", "Premium", or "Corner Stall"
+
     private Double price;
 
     @Column(name = "grid_col")
@@ -48,8 +51,21 @@ public class Stall {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToMany(mappedBy = "stalls") // to navigate Stall → Reservations.
-    private Set<Reservation> reservations = new HashSet<>();
+    @OneToMany(mappedBy = "stall", cascade = CascadeType.ALL)
+    private Set<ReservationStall> reservationStalls = new HashSet<>();
+
+    // Helper method to get reservations from reservationStalls
+    public Set<Reservation> getReservations() {
+        Set<Reservation> reservations = new HashSet<>();
+        if (reservationStalls != null) {
+            for (ReservationStall rs : reservationStalls) {
+                if (rs.getReservation() != null) {
+                    reservations.add(rs.getReservation());
+                }
+            }
+        }
+        return reservations;
+    }
 
     public enum StallSize {
         small,

@@ -5,7 +5,9 @@
 package com.reservex.backend.services;
 
 import com.reservex.backend.dto.ReservationDto;
+import com.reservex.backend.entity.Exhibition;
 import com.reservex.backend.entity.Reservation;
+import com.reservex.backend.entity.ReservationStall;
 import com.reservex.backend.entity.Stall;
 import com.reservex.backend.entity.User;
 import com.reservex.backend.repositories.ReservationRepository;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,18 +39,20 @@ public class ReservationService {
      */
     @Transactional
     public ReservationDto createReservation(Integer userId, Integer stallId) {
-        List<ReservationDto> reservations = createReservations(userId, List.of(stallId));
+        List<ReservationDto> reservations = createReservations(userId, List.of(stallId), null, null, null);
         return reservations.isEmpty() ? null : reservations.get(0);
     }
 
     /**
-     * Create one reservation that may contain multiple stalls, using the
-     * {@code reservation_stalls} join table. Enforces the business rule of
-     * at most three stalls per business via the {@code noOfCurrentBookings}
-     * field on {@link User}.
+     * Create one reservation that may contain multiple stalls with business categories.
      */
     @Transactional
-    public List<ReservationDto> createReservations(Integer userId, List<Integer> stallIds) {
+    public List<ReservationDto> createReservations(
+            Integer userId,
+            List<Integer> stallIds,
+            Map<Integer, String> stallBusinessCategories,  // stallId -> businessCategory
+            String specialRequirements,
+            Integer exhibitionId) {
         if (stallIds == null || stallIds.isEmpty()) {
             throw new IllegalArgumentException("At least one stall is required");
         }
@@ -88,39 +93,64 @@ public class ReservationService {
                     "You already have " + currentBookings + " booked.");
         }
 
+        // Get the exhibition from first stall
+        Exhibition exhibition = stallsToBook.iterator().next().getExhibition();
+
+        // Create reservation
         Reservation reservation = Reservation.builder()
                 .user(user)
+                .exhibition(exhibition)
                 .status(Reservation.Status.Approved)
+                .businessCategory("General")  // This is for the reservation
+                .specialRequirements(specialRequirements)  // User's special requirements
+                .noOfStallsRequired(newBookings)
                 .build();
-        reservation.getStalls().addAll(stallsToBook);
 
-        // Tell the Stalls about the Reservation
-        // This forces Hibernate to write the link to the database,
+        // Save reservation first to get the ID
+        reservation = reservationRepository.save(reservation);
+
+        // Create ReservationStall entries for each stall
         for (Stall stall : stallsToBook) {
-            // Make sure your Stall entity has a getReservations() list!
-            if (stall.getReservations() != null) {
-                stall.getReservations().add(reservation);
-            }
+            // Get business category for this specific stall
+            String businessCategory = stallBusinessCategories != null && stallBusinessCategories.containsKey(stall.getId())
+                    ? stallBusinessCategories.get(stall.getId())
+                    : "General";  // Default if not provided
+            
+            ReservationStall reservationStall = ReservationStall.builder()
+                    .reservation(reservation)
+                    .stall(stall)
+                    .exhibition(exhibition)
+                    .reservedPrice(java.math.BigDecimal.valueOf(stall.getPrice() != null ? stall.getPrice() : 0.0))
+                    .businessCategory(businessCategory)  // Set business category per stall
+                    .allocationStatus(ReservationStall.AllocationStatus.HELD)
+                    .build();
+            
+            reservation.getReservationStalls().add(reservationStall);
+            
+            // Mark stall as confirmed
+            stall.setIsConfirmed(true);
+            stallRepository.save(stall);
         }
 
+        // Save reservation with reservation_stalls
         reservation = reservationRepository.save(reservation);
 
         // Update cached count on user
         user.setNoOfCurrentBookings(currentBookings + newBookings);
         userRepository.save(user);
 
-        // Mark stalls as confirmed
-        for (Stall stall : stallsToBook) {
-            stall.setIsConfirmed(true);
-            stallRepository.save(stall);
-        }
-
         // Flush to ensure all data is persisted before sending email
         reservationRepository.flush();
         stallRepository.flush();
         
         // Send email with reservation details
-        emailService.sendReservationConfirmation(user, reservation);
+        try {
+            emailService.sendReservationConfirmation(user, reservation);
+        } catch (Exception e) {
+            // Log but don't fail the transaction
+            System.err.println("Failed to send reservation confirmation email: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         List<ReservationDto> result = new ArrayList<>();
         result.add(ReservationDto.fromEntity(reservation));

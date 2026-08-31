@@ -16,6 +16,9 @@ public class CreateStallRequest {
     @NotNull(message = "Size is required")
     private Stall.StallSize size;
 
+    @NotBlank(message = "Type is required")
+    private String type; // "Standard", "Premium", or "Corner Stall"
+
     @NotNull(message = "Price is required")
     @Positive(message = "Price must be positive")
     private Double price;
