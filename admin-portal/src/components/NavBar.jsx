@@ -1,9 +1,10 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, memo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import './NavBar.css';
 import { AuthContext } from '../contexts/AuthContext';
+import LogoutConfirmModal from './LogoutConfirmModal';
 
-const NavBar = () => {
+const NavBar = memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
@@ -123,39 +124,32 @@ const NavBar = () => {
           <button
             onClick={handleLogoutClick}
             className="navbar-logout-btn"
-            title="Logout"
+            title="Sign Out"
           >
-            <span className="navbar-logout-icon">⏻</span>
-            <span className="navbar-logout-text">Logout</span>
+            <svg 
+              style={{ width: '1.125rem', height: '1.125rem' }} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
           </button>
           </div>
         </div>
       </div>
 
-      {showLogoutModal && (
-        <div className="logout-modal-overlay">
-          <div className="logout-modal">
-            <h2>Confirm Logout</h2>
-            <p>Are you sure you want to logout?</p>
-            <div className="logout-modal-buttons">
-              <button
-                onClick={handleConfirmLogout}
-                className="logout-modal-btn confirm-btn"
-              >
-                Yes, Logout
-              </button>
-              <button
-                onClick={handleCancelLogout}
-                className="logout-modal-btn cancel-btn"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onCancel={handleCancelLogout}
+        onConfirm={handleConfirmLogout}
+      />
     </nav>
   );
-};
+});
+
+NavBar.displayName = 'NavBar';
 
 export default NavBar;

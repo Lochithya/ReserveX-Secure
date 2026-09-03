@@ -17,6 +17,14 @@ const ManageExhibitions = () => {
   const [editingExhibition, setEditingExhibition] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [exhibitionToDelete, setExhibitionToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [deletedExhibitionName, setDeletedExhibitionName] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(''); // 'create' or 'update'
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     venueId: '',
     name: '',
@@ -41,8 +49,7 @@ const ManageExhibitions = () => {
       setExhibitions(exhibitionsData);
       setVenues(venuesData);
     } catch (error) {
-      toast.error('Failed to load data');
-      console.error(error);
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
@@ -51,6 +58,73 @@ const ManageExhibitions = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Real-time validation for exhibition name
+    if (name === 'name') {
+      validateExhibitionName(value);
+    }
+    
+    // Clear validation error for this field
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateExhibitionName = (name) => {
+    const errors = {};
+    
+    // Check minimum length
+    if (name.length < 5) {
+      errors.name = 'Exhibition name must be at least 5 characters long';
+    }
+    
+    // Check for invalid characters
+    if (name && !/^[a-zA-Z0-9\s\-&,.'()]+$/.test(name)) {
+      errors.name = 'Exhibition name contains invalid characters';
+    }
+    
+    // Check for duplicate name (case-insensitive)
+    if (name.length >= 5) {
+      const isDuplicate = exhibitions.some(exhibition => {
+        // Skip the current exhibition when editing
+        if (editingExhibition && exhibition.id === editingExhibition.id) {
+          return false;
+        }
+        return exhibition.name.toLowerCase() === name.toLowerCase();
+      });
+      
+      if (isDuplicate) {
+        errors.name = 'An exhibition with this name already exists';
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateDates = (startDate, endDate) => {
+    const errors = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const sevenDaysFromNow = new Date(today);
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Check if start date is at least 7 days from now
+    if (start < sevenDaysFromNow) {
+      errors.startDate = 'Start date must be at least 7 days from today';
+    }
+    
+    // Check if end date is after or equal to start date
+    if (end < start) {
+      errors.endDate = 'End date must be on or after the start date';
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
   };
 
   const resetForm = () => {
@@ -64,38 +138,71 @@ const ManageExhibitions = () => {
       maxStallsPerVendor: 3
     });
     setEditingExhibition(null);
+    setValidationErrors({});
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
+    // Validate exhibition name
+    if (!validateExhibitionName(formData.name)) {
+      return;
+    }
+    
+    // Validate dates
+    if (!validateDates(formData.startDate, formData.endDate)) {
+      return;
+    }
+    
+    // Check all required fields
     if (!formData.venueId || !formData.name || !formData.startDate || !formData.endDate) {
-      toast.error('Please fill in all required fields');
+      setValidationErrors(prev => ({ ...prev, form: 'Please fill in all required fields' }));
       return;
     }
 
-    if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      toast.error('End date must be after start date');
-      return;
-    }
+    // Store data and show confirmation modal
+    setPendingSubmitData(formData);
+    setConfirmAction(editingExhibition ? 'update' : 'create');
+    setShowConfirmModal(true);
+  };
 
+  const confirmSubmit = async () => {
     try {
-      if (editingExhibition) {
-        await updateExhibition(editingExhibition.id, formData);
-        toast.success('Exhibition updated successfully');
+      if (confirmAction === 'update') {
+        await updateExhibition(editingExhibition.id, pendingSubmitData);
+        setSuccessMessage(`Exhibition "${pendingSubmitData.name}" has been successfully updated!`);
       } else {
-        await createExhibition(formData);
-        toast.success('Exhibition created successfully');
+        await createExhibition(pendingSubmitData);
+        setSuccessMessage(`Exhibition "${pendingSubmitData.name}" has been successfully created!`);
       }
       
       await fetchData();
       resetForm();
-      setActiveTab('manage');
+      setShowConfirmModal(false);
+      setPendingSubmitData(null);
+      setDeletedExhibitionName(''); // Clear any old deletion success
+      setShowSuccessModal(true);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      setValidationErrors(prev => ({ 
+        ...prev, 
+        form: error.response?.data?.message || 'Operation failed. Please try again.' 
+      }));
+      setShowConfirmModal(false);
       console.error(error);
     }
+  };
+
+  const cancelSubmit = () => {
+    setShowConfirmModal(false);
+    setPendingSubmitData(null);
+    setConfirmAction('');
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    setSuccessMessage('');
+    setDeletedExhibitionName('');
+    setActiveTab('manage');
   };
 
   const handleEdit = (exhibition) => {
@@ -114,20 +221,39 @@ const ManageExhibitions = () => {
 
   const handleDeleteClick = (exhibition) => {
     setExhibitionToDelete(exhibition);
+    setDeleteError(null); // Clear any previous errors
     setShowDeleteModal(true);
   };
 
   const confirmDelete = async () => {
     try {
+      setDeleteError(null);
+      const exhibitionName = exhibitionToDelete.name;
       await deleteExhibition(exhibitionToDelete.id);
-      toast.success('Exhibition deleted successfully');
-      await fetchData();
+      
+      // Close delete modal
       setShowDeleteModal(false);
       setExhibitionToDelete(null);
+      
+      // Show success modal with exhibition name
+      setDeletedExhibitionName(exhibitionName);
+      setShowSuccessModal(true);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete exhibition');
-      console.error(error);
+      // Extract the error message from the backend response
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Failed to delete exhibition';
+      setDeleteError(errorMessage);
+      console.error('Delete error:', error);
     }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    setDeletedExhibitionName('');
+    setSuccessMessage('');
+    // Always reload for real-time updates
+    window.location.reload();
   };
 
   const getStatusBadgeClass = (status) => {
@@ -148,14 +274,50 @@ const ManageExhibitions = () => {
     });
   };
 
+  const publishedCount = exhibitions.filter((exhibition) => exhibition.status === 'PUBLISHED').length;
+  const draftCount = exhibitions.filter((exhibition) => exhibition.status === 'DRAFT').length;
+  const totalStalls = exhibitions.reduce((sum, exhibition) => sum + (exhibition.totalStalls || 0), 0);
+
   return (
     <div className="manage-exhibitions-page">
       <NavBar />
-      
+
       <div className="manage-exhibitions-container">
-        <div className="page-header">
-          <h1 className="page-title">Exhibition Management</h1>
-          <p className="page-subtitle">Create and manage exhibitions across multiple venues</p>
+        <div className="page-shell">
+          <div className="page-topbar">
+            <div className="page-intro">
+              <span className="eyebrow">Operations overview</span>
+              <h1 className="page-title">Exhibition Management</h1>
+            </div>
+
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => setActiveTab('add')}
+            >
+              <span className="action-icon">＋</span>
+              Add Exhibition
+            </button>
+          </div>
+
+          <div className="metrics-strip">
+            <div className="metric-box">
+              <span className="metric-value">{exhibitions.length}</span>
+              <span className="metric-label">Total</span>
+            </div>
+            <div className="metric-box metric-box-blue">
+              <span className="metric-value">{publishedCount}</span>
+              <span className="metric-label">Published</span>
+            </div>
+            <div className="metric-box metric-box-amber">
+              <span className="metric-value">{draftCount}</span>
+              <span className="metric-label">Drafts</span>
+            </div>
+            <div className="metric-box metric-box-green">
+              <span className="metric-value">{totalStalls}</span>
+              <span className="metric-label">Stalls</span>
+            </div>
+          </div>
         </div>
 
         <div className="tabs-container">
@@ -196,13 +358,15 @@ const ManageExhibitions = () => {
                   {exhibitions.map(exhibition => (
                     <div key={exhibition.id} className="exhibition-card">
                       <div className="card-header">
-                        <div>
-                          <h3 className="card-title">{exhibition.name}</h3>
-                          <p className="card-venue">📍 {exhibition.venueName}</p>
+                        <div className="card-header-top">
+                          <div>
+                            <h3 className="card-title">{exhibition.name}</h3>
+                            <p className="card-venue">📍 {exhibition.venueName}</p>
+                          </div>
+                          <span className={`status-badge ${getStatusBadgeClass(exhibition.status)}`}>
+                            {exhibition.status}
+                          </span>
                         </div>
-                        <span className={`status-badge ${getStatusBadgeClass(exhibition.status)}`}>
-                          {exhibition.status}
-                        </span>
                       </div>
                       
                       <div className="card-body">
@@ -246,7 +410,7 @@ const ManageExhibitions = () => {
                           onClick={() => handleEdit(exhibition)}
                           className="btn-edit"
                         >
-                          ✏️ Edit
+                          Edit
                         </button>
                         <button
                           onClick={() => handleDeleteClick(exhibition)}
@@ -270,6 +434,12 @@ const ManageExhibitions = () => {
                 </h2>
                 
                 <form onSubmit={handleSubmit} className="exhibition-form">
+                  {validationErrors.form && (
+                    <div className="form-error-message">
+                      ⚠️ {validationErrors.form}
+                    </div>
+                  )}
+                  
                   <div className="form-grid">
                     <div className="form-group full-width">
                       <label className="form-label required">Exhibition Name</label>
@@ -278,10 +448,17 @@ const ManageExhibitions = () => {
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="form-input"
+                        className={`form-input ${validationErrors.name ? 'error' : ''}`}
                         placeholder="e.g., Colombo International Book Fair 2026"
                         required
+                        minLength="5"
                       />
+                      {validationErrors.name && (
+                        <span className="field-error">{validationErrors.name}</span>
+                      )}
+                      <span className="field-hint">
+                        {formData.name.length}/5 characters minimum
+                      </span>
                     </div>
 
                     <div className="form-group full-width">
@@ -321,9 +498,12 @@ const ManageExhibitions = () => {
                         name="startDate"
                         value={formData.startDate}
                         onChange={handleInputChange}
-                        className="form-input"
+                        className={`form-input ${validationErrors.startDate ? 'error' : ''}`}
                         required
                       />
+                      {validationErrors.startDate && (
+                        <span className="field-error">{validationErrors.startDate}</span>
+                      )}
                     </div>
 
                     <div className="form-group">
@@ -333,9 +513,12 @@ const ManageExhibitions = () => {
                         name="endDate"
                         value={formData.endDate}
                         onChange={handleInputChange}
-                        className="form-input"
+                        className={`form-input ${validationErrors.endDate ? 'error' : ''}`}
                         required
                       />
+                      {validationErrors.endDate && (
+                        <span className="field-error">{validationErrors.endDate}</span>
+                      )}
                     </div>
 
                     <div className="form-group">
@@ -366,12 +549,13 @@ const ManageExhibitions = () => {
                         max="10"
                         required
                       />
+                      <span className="field-hint">Between 1-10 stalls</span>
                     </div>
                   </div>
 
                   <div className="form-actions">
                     <button type="submit" className="btn-submit">
-                      {editingExhibition ? '💾 Update Exhibition' : '✨ Create Exhibition'}
+                      {editingExhibition ? 'Update Exhibition' : 'Create Exhibition'}
                     </button>
                     <button
                       type="button"
@@ -395,20 +579,176 @@ const ManageExhibitions = () => {
             <p className="modal-message">
               Are you sure you want to delete <strong>{exhibitionToDelete?.name}</strong>?
             </p>
-            <p className="modal-warning">
-              This action cannot be undone. All stalls associated with this exhibition must be deleted first.
-            </p>
+            
+            {exhibitionToDelete?.reservedStalls > 0 && (
+              <div className="modal-alert modal-alert-warning">
+                <span className="alert-icon">⚠️</span>
+                <div>
+                  <strong>Warning: This exhibition has {exhibitionToDelete.reservedStalls} reserved stalls</strong>
+                  <p>You must first change the status to CANCELLED to notify vendors and clean up reservations.</p>
+                </div>
+              </div>
+            )}
+            
+            {deleteError && (
+              <div className="modal-alert modal-alert-error">
+                <span className="alert-icon">❌</span>
+                <div>
+                  <strong>Cannot Delete Exhibition</strong>
+                  <p>{deleteError}</p>
+                  <p style={{marginTop: '8px', fontSize: '0.9rem', color: '#666'}}>
+                    <strong>Solution:</strong> First change the exhibition status to "CANCELLED" to notify vendors and clean up all reservations automatically.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {!exhibitionToDelete?.reservedStalls && !deleteError && (
+              <p className="modal-warning">
+                This action cannot be undone.
+              </p>
+            )}
+            
             <div className="modal-actions">
-              <button onClick={confirmDelete} className="btn-confirm-delete">
+              <button 
+                onClick={confirmDelete} 
+                className="btn-confirm-delete"
+                disabled={exhibitionToDelete?.reservedStalls > 0}
+              >
                 Yes, Delete
               </button>
               <button
-                onClick={() => { setShowDeleteModal(false); setExhibitionToDelete(null); }}
+                onClick={() => { 
+                  setShowDeleteModal(false); 
+                  setExhibitionToDelete(null); 
+                  setDeleteError(null);
+                }}
                 className="btn-cancel-modal"
               >
+                {deleteError ? 'Close' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content confirm-modal">
+            <h2 className="modal-title">
+              {confirmAction === 'create' ? '✨ Confirm Exhibition Creation' : '✏️ Confirm Exhibition Update'}
+            </h2>
+            <p className="modal-message">
+              {confirmAction === 'create' ? (
+                <>
+                  Are you sure you want to create exhibition <strong>{pendingSubmitData?.name}</strong>?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to update exhibition <strong>{pendingSubmitData?.name}</strong>?
+                </>
+              )}
+            </p>
+            
+            <div className="confirm-details">
+              <div className="confirm-detail-row">
+                <span className="detail-label">Venue:</span>
+                <span className="detail-value">
+                  {venues.find(v => v.id.toString() === pendingSubmitData?.venueId?.toString())?.name || 'N/A'}
+                </span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="detail-label">Start Date:</span>
+                <span className="detail-value">{pendingSubmitData?.startDate}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="detail-label">End Date:</span>
+                <span className="detail-value">{pendingSubmitData?.endDate}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="detail-label">Status:</span>
+                <span className="detail-value">{pendingSubmitData?.status}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="detail-label">Max Stalls/Vendor:</span>
+                <span className="detail-value">{pendingSubmitData?.maxStallsPerVendor}</span>
+              </div>
+            </div>
+
+            <p className="modal-warning">
+              {confirmAction === 'create' 
+                ? 'This will create a new exhibition that can be published to vendors.' 
+                : 'This will update the exhibition details immediately.'}
+            </p>
+            
+            <div className="modal-actions">
+              <button onClick={confirmSubmit} className="btn-confirm-action">
+                {confirmAction === 'create' ? 'Yes, Create Exhibition' : 'Yes, Update Exhibition'}
+              </button>
+              <button onClick={cancelSubmit} className="btn-cancel-modal">
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="modal-overlay success-overlay">
+          <div className="modal-content success-modal">
+            <button 
+              className="modal-close-btn" 
+              onClick={handleSuccessClose}
+              aria-label="Close"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M13 7L7 13M7 7L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            
+            <div className="success-icon">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="28" fill="#10b981" opacity="0.1"/>
+                <circle cx="32" cy="32" r="24" fill="#10b981" opacity="0.2"/>
+                <path d="M20 32L28 40L44 24" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            
+            {deletedExhibitionName ? (
+              <>
+                <h2 className="success-title">Exhibition Deleted Successfully!</h2>
+                <p className="success-message">
+                  <strong>{deletedExhibitionName}</strong> has been permanently removed from the system.
+                </p>
+                <div className="success-details">
+                  <div className="success-detail-item">
+                    <span className="detail-icon">🗑️</span>
+                    <span className="detail-text">Exhibition deleted</span>
+                  </div>
+                  <div className="success-detail-item">
+                    <span className="detail-icon">📦</span>
+                    <span className="detail-text">All stalls removed</span>
+                  </div>
+                  <div className="success-detail-item">
+                    <span className="detail-icon">✅</span>
+                    <span className="detail-text">Database cleaned</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="success-title">Success!</h2>
+                <p className="success-message">{successMessage}</p>
+              </>
+            )}
+            
+            <button 
+              onClick={handleSuccessClose} 
+              className="btn-success-close"
+            >
+              Close & Refresh
+            </button>
           </div>
         </div>
       )}

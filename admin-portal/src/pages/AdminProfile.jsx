@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import NavBar from "../components/NavBar";
 import "./AdminProfile.css";
-import "../components/NavBar.css";
 import api from "../services/api";
 import { AuthContext } from "../contexts/AuthContext";
 
@@ -124,6 +124,7 @@ export default function AdminProfile() {
 
   return (
     <div className="adminProfilePage">
+      <NavBar />
       <div className="adminProfileTopbar">
         <div className="adminProfileTitle">
           <h1>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavBar from '../components/NavBar';
 import { getDashboardStats, getAllExhibitions, getAllReservationsAdmin } from '../services/admin.service';
+import { clearCache } from '../services/api';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -10,14 +11,22 @@ const Dashboard = () => {
   const [recentExhibitions, setRecentExhibitions] = useState([]);
   const [recentReservations, setRecentReservations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+        // Clear cache to force fresh data
+        clearCache();
+      } else {
+        setLoading(true);
+      }
+      
       const [statsData, exhibitionsData, reservationsData] = await Promise.all([
         getDashboardStats(),
         getAllExhibitions(),
@@ -28,31 +37,31 @@ const Dashboard = () => {
       setRecentExhibitions(exhibitionsData.slice(0, 5));
       setRecentReservations(reservationsData.slice(0, 8));
     } catch (error) {
-      toast.error('Failed to load dashboard data');
-      console.error(error);
+      console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
-  const formatCurrency = (amount) => {
+  const formatCurrency = useCallback((amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'LKR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
-  };
+  }, []);
 
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
-  };
+  }, []);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     const colors = {
       DRAFT: '#f59e0b',
       PUBLISHED: '#10b981',
@@ -63,7 +72,12 @@ const Dashboard = () => {
       REJECTED: '#ef4444'
     };
     return colors[status] || '#6b7280';
-  };
+  }, []);
+
+  const occupancyRate = useMemo(() => {
+    if (!stats || stats.totalStalls === 0) return 0;
+    return Math.round((stats.reservedStalls / stats.totalStalls) * 100);
+  }, [stats]);
 
   if (loading) {
     return (
@@ -87,81 +101,83 @@ const Dashboard = () => {
             <h1 className="dashboard-title">Admin Dashboard</h1>
             <p className="dashboard-subtitle">Welcome back! Here's what's happening across all exhibitions</p>
           </div>
-          <button onClick={fetchDashboardData} className="refresh-btn" title="Refresh">
-            🔄 Refresh
+          <button 
+            onClick={() => fetchDashboardData(true)} 
+            className={`refresh-btn ${refreshing ? 'loading' : ''}`}
+            disabled={refreshing}
+            title="Refresh"
+          >
+            <span className="refresh-icon">🔄</span>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
 
         {/* Stats Cards */}
         <div className="stats-grid">
           <div className="stat-card purple">
-            <div className="stat-icon">🏛️</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.totalExhibitions || 0}</div>
               <div className="stat-label">Total Exhibitions</div>
+              <div className="stat-value">{stats?.totalExhibitions || 0}</div>
               <div className="stat-meta">
                 {stats?.publishedExhibitions || 0} Published · {stats?.draftExhibitions || 0} Draft
               </div>
             </div>
+            <div className="stat-icon">🏛️</div>
           </div>
 
           <div className="stat-card blue">
-            <div className="stat-icon">🏪</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.totalStalls || 0}</div>
               <div className="stat-label">Total Stalls</div>
+              <div className="stat-value">{stats?.totalStalls || 0}</div>
               <div className="stat-meta">
                 {stats?.availableStalls || 0} Available · {stats?.reservedStalls || 0} Reserved
               </div>
             </div>
+            <div className="stat-icon">🏪</div>
           </div>
 
           <div className="stat-card green">
-            <div className="stat-icon">📋</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.totalReservations || 0}</div>
               <div className="stat-label">Total Reservations</div>
+              <div className="stat-value">{stats?.totalReservations || 0}</div>
               <div className="stat-meta">
                 {stats?.reservedStalls || 0} stalls booked
               </div>
             </div>
+            <div className="stat-icon">📋</div>
           </div>
 
           <div className="stat-card orange">
-            <div className="stat-icon">👥</div>
             <div className="stat-content">
-              <div className="stat-value">{stats?.totalVendors || 0}</div>
               <div className="stat-label">Registered Vendors</div>
+              <div className="stat-value">{stats?.totalVendors || 0}</div>
               <div className="stat-meta">
                 Active users in system
               </div>
             </div>
+            <div className="stat-icon">👥</div>
           </div>
 
           <div className="stat-card revenue">
-            <div className="stat-icon">💰</div>
             <div className="stat-content">
-              <div className="stat-value">{formatCurrency(stats?.totalRevenue || 0)}</div>
               <div className="stat-label">Total Revenue</div>
+              <div className="stat-value">{formatCurrency(stats?.totalRevenue || 0)}</div>
               <div className="stat-meta">
                 From all reservations
               </div>
             </div>
+            <div className="stat-icon">💰</div>
           </div>
 
           <div className="stat-card teal">
-            <div className="stat-icon">📊</div>
             <div className="stat-content">
-              <div className="stat-value">
-                {stats?.totalStalls > 0 
-                  ? Math.round((stats.reservedStalls / stats.totalStalls) * 100) 
-                  : 0}%
-              </div>
               <div className="stat-label">Occupancy Rate</div>
+              <div className="stat-value">{occupancyRate}%</div>
               <div className="stat-meta">
                 Overall booking rate
               </div>
             </div>
+            <div className="stat-icon">📊</div>
           </div>
         </div>
 

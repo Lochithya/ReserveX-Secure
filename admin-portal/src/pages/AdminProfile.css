@@ -16,7 +16,7 @@
 
 .adminProfilePage {
   min-height: 100vh;
-  background: #ffffff;
+  background: #f5f7fa;
   padding: 28px 28px 48px;
   color: var(--ap-text);
 }

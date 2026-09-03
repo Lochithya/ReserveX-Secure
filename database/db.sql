@@ -80,6 +80,7 @@ CREATE TABLE defaultdb.stalls (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
+    is_Confirmed BOOLEAN DEFAULT FALSE,
     CONSTRAINT chk_stall_price
         CHECK (price >= 0),
     CONSTRAINT chk_stall_grid_position
@@ -125,24 +126,12 @@ CREATE TABLE defaultdb.reservations (
         'CANCELLED',
         'EXPIRED'
     ) NOT NULL DEFAULT 'PENDING',
-    requested_stall_type ENUM(
-        'Standard',
-        'Premium',
-        'Corner Stall'
-    ) NULL,
     preferred_size ENUM(
         'small',
         'medium',
         'large'
     ) NULL,
     no_of_stalls_required INT NOT NULL DEFAULT 1,
-    business_category ENUM(
-        'Food & Beverage',
-        'Clothing',
-        'Electronics',
-        'Handicrafts',
-        'Services'
-    ) NOT NULL,
     special_requirements TEXT NULL,
     -- Populate only after the reservation is approved.
     qr_code_token CHAR(36) NULL,
@@ -201,6 +190,13 @@ CREATE TABLE defaultdb.reservation_stalls (
             ELSE NULL
         END
     ) STORED,
+    business_category enum(
+        'Food & Beverage',
+        'Sports',
+        'Education',
+        'Entertainment',
+        'Other'
+    ) DEFAULT 'Other',
     CONSTRAINT chk_reserved_price
         CHECK (reserved_price >= 0),
     -- Guarantees the reservation is for the same exhibition.
@@ -237,14 +233,14 @@ CREATE TABLE defaultdb.reservation_stalls (
 ) ENGINE=InnoDB;
 
 
-CREATE TABLE defaultdb.reservation_genres (
+CREATE TABLE defaultdb.reservation_genre (
     reservation_stall_id INT NOT NULL,
     genre_name VARCHAR(100) NOT NULL,
     PRIMARY KEY (
         reservation_stall_id,
         genre_name
     ),
-    CONSTRAINT fk_reservation_genres_reservation_stall
+    CONSTRAINT fk_reservation_genre_reservation_stall
         FOREIGN KEY (reservation_stall_id)
         REFERENCES defaultdb.reservation_stalls(reservation_stall_id)
         ON DELETE CASCADE

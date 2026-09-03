@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class AdminReservationService {
     
     private final ReservationRepository reservationRepository;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public List<AdminReservationDto> getAllReservations() {
@@ -42,6 +43,9 @@ public class AdminReservationService {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + id));
 
+        // Store old status for email notification
+        String oldStatus = reservation.getStatus().name();
+
         // Validate status
         Reservation.Status newStatus;
         try {
@@ -52,6 +56,18 @@ public class AdminReservationService {
 
         reservation.setStatus(newStatus);
         Reservation updated = reservationRepository.save(reservation);
+        
+        // Send email notification if status actually changed
+        if (!oldStatus.equals(newStatus.name()) && updated.getUser() != null) {
+            try {
+                emailService.sendReservationStatusChangeNotification(
+                    updated.getUser(), updated, oldStatus, newStatus.name());
+            } catch (Exception e) {
+                // Log error but don't fail the transaction
+                System.err.println("Failed to send status change email: " + e.getMessage());
+            }
+        }
+        
         return AdminReservationDto.fromEntity(updated);
     }
 
@@ -60,14 +76,35 @@ public class AdminReservationService {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found with ID: " + id));
 
+        // Collect information for email notification before deleting
+        String exhibitionName = reservation.getExhibition() != null 
+            ? reservation.getExhibition().getName() 
+            : "Exhibition";
+        List<String> stallNames = reservation.getStalls().stream()
+            .map(stall -> stall.getName())
+            .collect(Collectors.toList());
+
         // Mark stalls as available again by setting isConfirmed to false
         reservation.getStalls().forEach(stall -> stall.setIsConfirmed(false));
         
         // Update user's booking count
+        int remainingBookings = 0;
         if (reservation.getUser() != null) {
             int currentBookings = reservation.getUser().getNoOfCurrentBookings();
             int stallCount = reservation.getNoOfStallsRequired();
-            reservation.getUser().setNoOfCurrentBookings(Math.max(0, currentBookings - stallCount));
+            remainingBookings = Math.max(0, currentBookings - stallCount);
+            reservation.getUser().setNoOfCurrentBookings(remainingBookings);
+        }
+
+        // Send email notification before deleting
+        if (reservation.getUser() != null) {
+            try {
+                emailService.sendReservationDeletionNotification(
+                    reservation.getUser(), exhibitionName, stallNames, remainingBookings);
+            } catch (Exception e) {
+                // Log error but don't fail the transaction
+                System.err.println("Failed to send deletion email: " + e.getMessage());
+            }
         }
 
         reservationRepository.delete(reservation);
